@@ -1,74 +1,139 @@
 <!DOCTYPE html>
-
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Atelier">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23f5f6f8' width='100' height='100' rx='20'/><text y='65' x='50' text-anchor='middle' font-size='50'>🎨</text></svg>">
     <title>Atelier アトリエ</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-```
-<!-- React & ReactDOM -->
-<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 
-<!-- Babel para compilar JSX en el navegador -->
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Babel para compilar JSX en el navegador -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-<style>
-    /* Ocultar la barra de scroll para un look más "app" */
-    .hide-scrollbar::-webkit-scrollbar { display: none; }
-    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-    body {
-        background-color: #f5f6f8;
-        -webkit-tap-highlight-color: transparent;
-        -webkit-overflow-scrolling: touch;
-        overscroll-behavior: none;
-    }
-    /* Safe area para iPhone con notch */
-    .safe-top { padding-top: env(safe-area-inset-top, 0px); }
-    .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
-    /* Fix iOS Safari 100vh */
-    .h-screen-safe { height: 100vh; height: 100dvh; }
-    /* Fix para inputs en iOS Safari */
-    input, textarea, select {
-        font-size: 16px !important;
-        -webkit-appearance: none;
-        -moz-appearance: none;
-        appearance: none;
-        border-radius: 0;
-    }
-    input[type="date"] {
-        min-height: 44px;
-    }
-    /* Fix para line-clamp en Safari */
-    .line-clamp-2 {
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-    }
-    .line-clamp-3 {
-        display: -webkit-box;
-        -webkit-line-clamp: 3;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-    }
-</style>
-```
-
+    <style>
+        /* Ocultar la barra de scroll para un look más "app" */
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        * { box-sizing: border-box; }
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #f5f6f8;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: none;
+            overflow: hidden;
+        }
+        #root { width: 100%; height: 100%; }
+        /* Safe area para iPhone con Dynamic Island */
+        .safe-top { padding-top: max(env(safe-area-inset-top, 0px), 20px); }
+        .safe-bottom { padding-bottom: max(env(safe-area-inset-bottom, 0px), 20px); }
+        /* Altura real del viewport en iOS Safari */
+        .h-screen-safe {
+            height: 100vh;
+            height: 100dvh;
+            height: -webkit-fill-available;
+        }
+        /* Fix para inputs en iOS Safari — evita zoom */
+        input, textarea, select {
+            font-size: 16px !important;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            border-radius: 0;
+        }
+        input[type="date"] {
+            min-height: 44px;
+        }
+        /* Targets táctiles mínimos 44px para iOS en navegación */
+        nav button {
+            min-height: 44px;
+            min-width: 44px;
+        }
+        /* Fix para line-clamp en Safari */
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .line-clamp-3 {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+    </style>
 </head>
 <body>
     <div id="root"></div>
 
-```
 <script type="text/babel">
     const { useState, useEffect } = React;
+
+    // --- BASE DE DATOS INDEXEDDB ---
+    const DB_NAME = "AtelierDB";
+    const DB_VERSION = 1;
+    const STORES = ['notas', 'referencias', 'libros', 'historia', 'expos', 'tecnicas'];
+
+    const initDB = () => {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(DB_NAME, DB_VERSION);
+            request.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                STORES.forEach(store => {
+                    if (!db.objectStoreNames.contains(store)) {
+                        db.createObjectStore(store, { keyPath: "id" });
+                    }
+                });
+            };
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    };
+
+    const dbGetAll = async (storeName) => {
+        const db = await initDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(storeName, "readonly");
+            const store = tx.objectStore(storeName);
+            const request = store.getAll();
+            request.onsuccess = () => resolve(request.result.sort((a,b) => b.id - a.id));
+            request.onerror = () => reject(request.error);
+        });
+    };
+
+    const dbSave = async (storeName, data) => {
+        const db = await initDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(storeName, "readwrite");
+            const store = tx.objectStore(storeName);
+            const request = store.put(data);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    };
+
+    const dbDelete = async (storeName, id) => {
+        const db = await initDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(storeName, "readwrite");
+            const store = tx.objectStore(storeName);
+            const request = store.delete(id);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+        });
+    };
 
     // --- ICONOS INTEGRADOS ---
     const Icon = ({ path, size = 24, strokeWidth = 2, className = "" }) => (
@@ -107,19 +172,6 @@
     };
 
     // --- FUNCIONES UTILERÍA ---
-    const getLocalData = (key) => {
-      try {
-        const data = localStorage.getItem(key);
-        const parsed = data ? JSON.parse(data) : [];
-        return Array.isArray(parsed) ? parsed : [];
-      } catch (error) { return []; }
-    };
-
-    const setLocalData = (key, value) => {
-      try { localStorage.setItem(key, JSON.stringify(value)); } 
-      catch (error) { console.warn('No se pudo guardar por restricciones de memoria.'); }
-    };
-
     const formatShortDate = (dateString) => {
       if (!dateString) return 'S/F';
       const date = new Date(dateString + 'T00:00:00');
@@ -131,21 +183,23 @@
       return new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     };
 
-    // --- COMPONENTES ---
+    // --- COMPONENTES DE UI ---
 
     const BottomNav = ({ activeTab, setActiveTab }) => {
+      // AQUÍ ESTÁ EL MENÚ EXPOS AÑADIDO A LA BARRA INFERIOR
       const tabs = [
         { id: 'inicio', icon: Home, label: 'INICIO' },
         { id: 'historia', icon: Landmark, label: 'HISTORIA' },
         { id: 'libros', icon: Book, label: 'LIBROS' },
         { id: 'notas', icon: FileText, label: 'NOTAS' },
         { id: 'galeria', icon: ImageIcon, label: 'GALERÍA' },
+        { id: 'expos', icon: Ticket, label: 'EXPOS' }, // MENÚ EXPOS AÑADIDO
       ];
 
       return (
-        <nav className={`absolute bottom-0 w-full px-2 pt-4 pb-4 safe-bottom ${theme.bgMain} shadow-[0_-10px_20px_rgba(216,221,230,0.5)] flex justify-between rounded-t-3xl z-20`}>
+        <nav className={`absolute bottom-0 w-full px-2 pt-4 ${theme.bgMain} shadow-[0_-10px_20px_rgba(216,221,230,0.5)] flex justify-between rounded-t-3xl z-20`} style={{paddingBottom: 'max(env(safe-area-inset-bottom, 16px), 16px)'}}>
           {tabs.map((tab) => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex flex-col items-center w-full gap-1 transition-colors ${activeTab === tab.id ? 'text-[#5b85b5]' : 'text-gray-400 hover:text-gray-500'}`}>
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex flex-col items-center w-full gap-1 transition-all active:scale-95 ${activeTab === tab.id ? 'text-[#5b85b5]' : 'text-gray-400 hover:text-gray-500'}`}>
               <tab.icon size={20} strokeWidth={activeTab === tab.id ? 2.5 : 2} />
               <span className="text-[8px] font-bold tracking-wider">{tab.label}</span>
             </button>
@@ -165,7 +219,7 @@
       ];
 
       return (
-        <main className="px-6 space-y-10 h-full overflow-y-auto hide-scrollbar pb-28 pt-4">
+        <main className="px-6 space-y-10 h-full overflow-y-auto hide-scrollbar pb-36 pt-4">
           <div className="mt-2">
             <h2 className={`font-serif text-3xl italic ${theme.textDark} mb-1`}>Buenos días, artista.</h2>
             <p className="text-sm text-gray-500 capitalize">{obtenerFechaActual()}</p>
@@ -173,7 +227,7 @@
 
           <div>
             <h3 className="text-xs text-gray-400 mb-3 ml-2 font-bold uppercase tracking-widest">Reflexión Reciente</h3>
-            <div onClick={() => historia.length > 0 ? setActiveTab('historia') : abrirFormulario('historia')} className={`p-6 rounded-3xl ${theme.bgMain} ${theme.shadowFlat} border-l-4 border-[#5b85b5] cursor-pointer active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all`}>
+            <div onClick={() => historia.length > 0 ? setActiveTab('historia') : abrirFormulario('historia')} className={`p-6 rounded-3xl ${theme.bgMain} ${theme.shadowFlat} border-l-4 border-[#5b85b5] cursor-pointer active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all active:scale-[0.98]`}>
               {historia.length > 0 ? (
                 <>
                   <p className={`font-serif italic ${theme.textDark} text-lg leading-relaxed line-clamp-3`}>"{historia[0].resumen}"</p>
@@ -196,7 +250,7 @@
             <h3 className="text-xs text-gray-400 mb-3 ml-2 font-bold uppercase tracking-widest">Tu Estudio</h3>
             <div className="grid grid-cols-3 gap-4">
               {menuItems.map((item, index) => (
-                <button key={index} onClick={() => setActiveTab(item.tab)} className={`aspect-square rounded-2xl flex flex-col items-center justify-center gap-2 ${theme.bgMain} ${theme.shadowFlat} active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all`}>
+                <button key={index} onClick={() => setActiveTab(item.tab)} className={`aspect-square rounded-2xl flex flex-col items-center justify-center gap-2 ${theme.bgMain} ${theme.shadowFlat} active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all active:scale-95`}>
                   <span className={`text-2xl font-serif ${item.count > 0 ? 'text-[#5b85b5]' : 'text-gray-400'}`}>{item.count > 0 ? item.count : 'O'}</span>
                   <span className="text-[10px] uppercase tracking-widest text-gray-500">{item.label}</span>
                 </button>
@@ -208,10 +262,10 @@
     };
 
     const HistoriaList = ({ historia, abrirFormulario, setSelectedItem }) => (
-      <main className="px-6 h-full overflow-y-auto hide-scrollbar pb-28 pt-4 bg-[#f5f6f8]">
+      <main className="px-6 h-full overflow-y-auto hide-scrollbar pb-36 pt-4 bg-[#f5f6f8]">
         <div className="flex justify-between items-center mb-6">
           <h2 className={`font-serif text-2xl ${theme.textDark}`}>Apuntes e Historia</h2>
-          <button onClick={() => abrirFormulario('historia')} className={`w-10 h-10 rounded-full ${theme.bgMain} ${theme.shadowFlat} flex items-center justify-center text-[#5b85b5] active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all`}><Plus size={20} /></button>
+          <button onClick={() => abrirFormulario('historia')} className={`w-10 h-10 rounded-full ${theme.bgMain} ${theme.shadowFlat} flex items-center justify-center text-[#5b85b5] active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all active:scale-95`}><Plus size={20} /></button>
         </div>
         <div className="space-y-6">
           {historia.length === 0 && <div className="text-center mt-16 text-gray-400"><Landmark size={40} className="mx-auto mb-4 opacity-30" /><p className="italic font-serif">Tu cuaderno de historia está en blanco.</p></div>}
@@ -234,15 +288,15 @@
     );
 
     const LibrosList = ({ libros, abrirFormulario, setSelectedItem }) => (
-      <main className="px-6 h-full overflow-y-auto hide-scrollbar pb-28 pt-4 bg-[#f5f6f8]">
+      <main className="px-6 h-full overflow-y-auto hide-scrollbar pb-36 pt-4 bg-[#f5f6f8]">
         <div className="flex justify-between items-center mb-6">
           <h2 className={`font-serif text-2xl ${theme.textDark}`}>Mi Biblioteca</h2>
-          <button onClick={() => abrirFormulario('libro')} className={`w-10 h-10 rounded-full ${theme.bgMain} ${theme.shadowFlat} flex items-center justify-center text-[#5b85b5] active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all`}><Plus size={20} /></button>
+          <button onClick={() => abrirFormulario('libro')} className={`w-10 h-10 rounded-full ${theme.bgMain} ${theme.shadowFlat} flex items-center justify-center text-[#5b85b5] active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all active:scale-95`}><Plus size={20} /></button>
         </div>
         <div className="space-y-6">
           {libros.length === 0 && <div className="text-center mt-16 text-gray-400"><Book size={40} className="mx-auto mb-4 opacity-30" /><p className="italic font-serif">Añade tu primer libro.</p></div>}
           {libros.map(libro => (
-            <div key={libro.id} onClick={() => setSelectedItem({ type: 'libro', data: libro })} className={`p-4 rounded-3xl ${theme.bgMain} ${theme.shadowFlat} flex gap-4 items-center cursor-pointer active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all`}>
+            <div key={libro.id} onClick={() => setSelectedItem({ type: 'libro', data: libro })} className={`p-4 rounded-3xl ${theme.bgMain} ${theme.shadowFlat} flex gap-4 items-center cursor-pointer active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all active:scale-[0.98]`}>
               <div className="w-20 h-28 rounded-xl overflow-hidden shadow-inner flex-shrink-0 bg-gray-200">
                 <img src={libro.imagen} alt={libro.titulo} className="w-full h-full object-cover" />
               </div>
@@ -261,15 +315,15 @@
     );
 
     const NotasList = ({ notas, abrirFormulario, setSelectedItem }) => (
-      <main className="px-6 h-full overflow-y-auto hide-scrollbar pb-28 pt-4 bg-[#f5f6f8]">
+      <main className="px-6 h-full overflow-y-auto hide-scrollbar pb-36 pt-4 bg-[#f5f6f8]">
         <div className="flex justify-between items-center mb-6">
           <h2 className={`font-serif text-2xl ${theme.textDark}`}>Cuaderno de Obras</h2>
-          <button onClick={() => abrirFormulario('nota')} className={`w-12 h-12 rounded-full ${theme.bgMain} ${theme.shadowFlat} flex items-center justify-center text-[#5b85b5] active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all`}><Plus size={24} /></button>
+          <button onClick={() => abrirFormulario('nota')} className={`w-12 h-12 rounded-full ${theme.bgMain} ${theme.shadowFlat} flex items-center justify-center text-[#5b85b5] active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all active:scale-95`}><Plus size={24} /></button>
         </div>
         <div className="space-y-6">
           {notas.length === 0 && <div className="text-center mt-16 text-gray-400"><FileText size={40} className="mx-auto mb-4 opacity-30" /><p className="italic font-serif">Aún no has analizado ninguna obra.</p></div>}
           {notas.map(nota => (
-            <div key={nota.id} onClick={() => setSelectedItem({ type: 'nota', data: nota })} className={`p-4 rounded-3xl ${theme.bgMain} ${theme.shadowFlat} active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all cursor-pointer`}>
+            <div key={nota.id} onClick={() => setSelectedItem({ type: 'nota', data: nota })} className={`p-4 rounded-3xl ${theme.bgMain} ${theme.shadowFlat} active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all cursor-pointer active:scale-[0.98]`}>
               <div className="aspect-[4/3] w-full rounded-2xl overflow-hidden mb-4 shadow-inner bg-gray-200">
                 <img src={nota.imagen} alt={nota.titulo} className="w-full h-full object-cover opacity-90" />
               </div>
@@ -287,15 +341,15 @@
     );
 
     const TecnicasList = ({ tecnicas, abrirFormulario, setSelectedItem }) => (
-      <main className="px-6 h-full overflow-y-auto hide-scrollbar pb-28 pt-4 bg-[#f5f6f8]">
+      <main className="px-6 h-full overflow-y-auto hide-scrollbar pb-36 pt-4 bg-[#f5f6f8]">
         <div className="flex justify-between items-center mb-6">
           <h2 className={`font-serif text-2xl ${theme.textDark}`}>Técnicas y Recetas</h2>
-          <button onClick={() => abrirFormulario('tecnica')} className={`w-10 h-10 rounded-full ${theme.bgMain} ${theme.shadowFlat} flex items-center justify-center text-[#5b85b5] active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all`}><Plus size={20} /></button>
+          <button onClick={() => abrirFormulario('tecnica')} className={`w-10 h-10 rounded-full ${theme.bgMain} ${theme.shadowFlat} flex items-center justify-center text-[#5b85b5] active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all active:scale-95`}><Plus size={20} /></button>
         </div>
         <div className="space-y-6">
           {tecnicas.length === 0 && <div className="text-center mt-16 text-gray-400"><Palette size={40} className="mx-auto mb-4 opacity-30" /><p className="italic font-serif">Guarda tus recetas de color y procesos paso a paso.</p></div>}
           {tecnicas.map(tecnica => (
-            <div key={tecnica.id} onClick={() => setSelectedItem({ type: 'tecnica', data: tecnica })} className={`p-6 rounded-3xl ${theme.bgMain} ${theme.shadowFlat} cursor-pointer active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all`}>
+            <div key={tecnica.id} onClick={() => setSelectedItem({ type: 'tecnica', data: tecnica })} className={`p-6 rounded-3xl ${theme.bgMain} ${theme.shadowFlat} cursor-pointer active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all active:scale-[0.98]`}>
               <div className="flex justify-between items-start mb-3">
                 <h3 className={`font-serif text-xl ${theme.textDark} leading-tight pr-4`}>{tecnica.titulo}</h3>
                 <span className={`text-[10px] px-3 py-1 rounded-full ${theme.shadowInset} text-[#5b85b5] font-bold uppercase tracking-widest whitespace-nowrap`}>{tecnica.medio}</span>
@@ -322,15 +376,15 @@
     );
 
     const ExposicionesList = ({ expos, abrirFormulario, setSelectedItem }) => (
-      <main className="px-6 h-full overflow-y-auto hide-scrollbar pb-28 pt-4 bg-[#f5f6f8]">
+      <main className="px-6 h-full overflow-y-auto hide-scrollbar pb-36 pt-4 bg-[#f5f6f8]">
         <div className="flex justify-between items-center mb-6">
           <h2 className={`font-serif text-2xl ${theme.textDark}`}>Exposiciones</h2>
-          <button onClick={() => abrirFormulario('expo')} className={`w-10 h-10 rounded-full ${theme.bgMain} ${theme.shadowFlat} flex items-center justify-center text-[#5b85b5] active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all`}><Plus size={20} /></button>
+          <button onClick={() => abrirFormulario('expo')} className={`w-10 h-10 rounded-full ${theme.bgMain} ${theme.shadowFlat} flex items-center justify-center text-[#5b85b5] active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all active:scale-95`}><Plus size={20} /></button>
         </div>
         <div className="space-y-6">
           {expos.length === 0 && <div className="text-center mt-16 text-gray-400"><Ticket size={40} className="mx-auto mb-4 opacity-30" /><p className="italic font-serif">Aún no has guardado ninguna exposición.</p></div>}
           {expos.map(expo => (
-            <div key={expo.id} onClick={() => setSelectedItem({ type: 'expo', data: expo })} className={`p-4 rounded-3xl ${theme.bgMain} ${theme.shadowFlat} flex flex-col cursor-pointer active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all`}>
+            <div key={expo.id} onClick={() => setSelectedItem({ type: 'expo', data: expo })} className={`p-4 rounded-3xl ${theme.bgMain} ${theme.shadowFlat} flex flex-col cursor-pointer active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all active:scale-[0.98]`}>
               <div className="h-32 w-full rounded-xl overflow-hidden shadow-inner bg-gray-200 mb-3 relative">
                 <img src={expo.imagen} alt={expo.titulo} className="w-full h-full object-cover" />
                 <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-md text-[10px] font-bold text-gray-600 shadow-sm uppercase tracking-widest">
@@ -357,15 +411,15 @@
       const categorias = ['Todas', 'Luz', 'Color', 'Composición', 'Textura'];
 
       return (
-        <main className="h-full overflow-y-auto hide-scrollbar pb-28 pt-4 bg-[#f5f6f8]">
+        <main className="h-full overflow-y-auto hide-scrollbar pb-36 pt-4 bg-[#f5f6f8]">
           <div className="px-6 flex justify-between items-center mb-6">
             <h2 className={`font-serif text-2xl ${theme.textDark}`}>Referencias</h2>
-            <button onClick={() => abrirFormulario('galeria')} className={`w-10 h-10 rounded-full ${theme.bgMain} ${theme.shadowFlat} flex items-center justify-center text-[#5b85b5] active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all`}><Plus size={20} /></button>
+            <button onClick={() => abrirFormulario('galeria')} className={`w-10 h-10 rounded-full ${theme.bgMain} ${theme.shadowFlat} flex items-center justify-center text-[#5b85b5] active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all active:scale-95`}><Plus size={20} /></button>
           </div>
           
           <div className="px-6 mb-8 overflow-x-auto hide-scrollbar flex gap-4 pb-4" style={{WebkitOverflowScrolling: 'touch'}}>
             {categorias.map(cat => (
-              <button key={cat} onClick={() => setFiltroGaleria(cat)} className={`px-5 py-2 rounded-full text-xs font-bold tracking-wider uppercase transition-all whitespace-nowrap ${filtroGaleria === cat ? `shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] text-[#5b85b5]` : `${theme.shadowFlat} text-gray-500 hover:text-[#4a729e]`}`}>
+              <button key={cat} onClick={() => setFiltroGaleria(cat)} className={`px-5 py-2 rounded-full text-xs font-bold tracking-wider uppercase transition-all whitespace-nowrap active:scale-95 ${filtroGaleria === cat ? `shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] text-[#5b85b5]` : `${theme.shadowFlat} text-gray-500 hover:text-[#4a729e]`}`}>
                 {cat}
               </button>
             ))}
@@ -374,7 +428,7 @@
             {refsFiltradas.length === 0 && <div className="col-span-2 text-center mt-10 text-gray-400"><ImageIcon size={40} className="mx-auto mb-4 opacity-30" /><p className="italic font-serif">No hay referencias guardadas aquí.</p></div>}
             {refsFiltradas.map((ref, i) => (
               <div key={ref.id} className={`p-2 rounded-2xl ${theme.bgMain} ${theme.shadowFlat} flex flex-col relative group ${i % 2 === 0 ? 'mt-0' : 'mt-6'}`}>
-                <button onClick={(e) => { e.stopPropagation(); handleEliminarReferenciaClick(ref.id); }} className="absolute top-4 right-4 z-10 bg-white/80 p-1.5 rounded-full text-red-400 transition-opacity backdrop-blur-sm shadow-md">
+                <button onClick={(e) => { e.stopPropagation(); handleEliminarReferenciaClick(ref.id); }} className="absolute top-4 right-4 z-10 bg-white/80 p-1.5 rounded-full text-red-400 transition-opacity backdrop-blur-sm shadow-md active:scale-90">
                   <Trash2 size={12} />
                 </button>
                 <div className="w-full rounded-xl overflow-hidden shadow-inner aspect-[3/4] bg-gray-200">
@@ -418,11 +472,11 @@
       const removeImageRef = (indexToRemove) => setFormData(prev => ({ ...prev, imagenesRef: prev.imagenesRef.filter((_, idx) => idx !== indexToRemove) }));
 
       return (
-        <main className="h-full overflow-y-auto hide-scrollbar pb-28 bg-[#f5f6f8]">
+        <main className="h-full overflow-y-auto hide-scrollbar pb-36 bg-[#f5f6f8]">
           <div className="px-6 py-4 safe-top flex justify-between items-center sticky top-0 z-20 bg-[#f5f6f8]/90 backdrop-blur-md" style={{WebkitBackdropFilter: 'blur(12px)'}}>
-            <button onClick={resetForm} className={`w-10 h-10 rounded-full ${theme.shadowFlat} flex items-center justify-center text-gray-500 active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all`}><ArrowLeft size={20} /></button>
+            <button onClick={resetForm} className={`w-10 h-10 rounded-full ${theme.shadowFlat} flex items-center justify-center text-gray-500 active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all active:scale-95`}><ArrowLeft size={20} /></button>
             <h2 className={`font-serif text-xl ${theme.textDark}`}>{titulos[isAdding]}</h2>
-            <button onClick={handleGuardar} className={`w-10 h-10 rounded-full ${theme.bgAccent} text-white shadow-[4px_4px_10px_#d8dde6,-4px_-4px_10px_#ffffff] flex items-center justify-center active:shadow-inner transition-all`}><Check size={20} /></button>
+            <button onClick={handleGuardar} className={`w-10 h-10 rounded-full ${theme.bgAccent} text-white shadow-[4px_4px_10px_#d8dde6,-4px_-4px_10px_#ffffff] flex items-center justify-center active:shadow-inner transition-all active:scale-95`}><Check size={20} /></button>
           </div>
           
           <div className="px-6 space-y-6 mt-4">
@@ -501,16 +555,16 @@
                     {formData.imagenesRef && formData.imagenesRef.map((imgSrc, idx) => (
                       <div key={idx} className={`relative w-20 h-20 rounded-2xl ${theme.shadowFlat} bg-[#f5f6f8] p-1`}>
                         <img src={imgSrc} alt="Preview" className="w-full h-full object-cover rounded-xl" />
-                        <button onClick={() => removeImageRef(idx)} className="absolute -top-2 -right-2 bg-red-400 text-white p-1 rounded-full shadow-md"><X size={10} /></button>
+                        <button onClick={() => removeImageRef(idx)} className="absolute -top-2 -right-2 bg-red-400 text-white p-1 rounded-full shadow-md active:scale-90"><X size={10} /></button>
                       </div>
                     ))}
-                    <label className={`w-20 h-20 rounded-2xl ${theme.shadowInset} flex flex-col items-center justify-center text-[#5b85b5] cursor-pointer hover:opacity-80 transition-opacity`}>
+                    <label className={`w-20 h-20 rounded-2xl ${theme.shadowInset} flex flex-col items-center justify-center text-[#5b85b5] cursor-pointer hover:opacity-80 transition-opacity active:scale-95`}>
                        <Camera size={24} className="mb-1" />
                        <span className="text-[8px] uppercase tracking-widest font-bold">Añadir</span>
                        <input type="file" accept="image/*" multiple onChange={handleLocalImageUpload} className="hidden" />
                     </label>
                   </div>
-                  <p className="text-[9px] text-gray-400 mt-4 px-2 italic font-serif leading-tight">Nota: Las fotos se comprimen automáticamente para no llenar la memoria local de tu dispositivo.</p>
+                  <p className="text-[9px] text-gray-400 mt-4 px-2 italic font-serif leading-tight">Nota: Las fotos se guardan en la base de datos local de tu navegador.</p>
                 </div>
               </div>
             )}
@@ -555,7 +609,7 @@
                   <div className="flex justify-between gap-1">
                     {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(dia => {
                       const isSelected = (formData.dias || []).includes(dia);
-                      return <button key={dia} onClick={(e) => { e.preventDefault(); toggleDia(dia); }} className={`w-[13%] aspect-square rounded-full flex items-center justify-center text-xs font-bold transition-all ${isSelected ? `${theme.bgAccent} text-white shadow-inner` : `${theme.bgMain} ${theme.shadowFlat} text-gray-400 hover:text-[#5b85b5]`}`}>{dia}</button>
+                      return <button key={dia} onClick={(e) => { e.preventDefault(); toggleDia(dia); }} className={`w-[13%] aspect-square rounded-full flex items-center justify-center text-xs font-bold transition-all active:scale-90 ${isSelected ? `${theme.bgAccent} text-white shadow-inner` : `${theme.bgMain} ${theme.shadowFlat} text-gray-400 hover:text-[#5b85b5]`}`}>{dia}</button>
                     })}
                   </div>
                 </div>
@@ -588,11 +642,11 @@
       const titulosDetalle = { nota: 'Obra', historia: 'Apunte', libro: 'Libro', expo: 'Exposición', tecnica: 'Receta de Estudio' };
 
       return (
-        <main className="h-full overflow-y-auto hide-scrollbar pb-28 bg-[#f5f6f8]">
+        <main className="h-full overflow-y-auto hide-scrollbar pb-36 bg-[#f5f6f8]">
           <div className="px-6 py-4 safe-top flex justify-between items-center sticky top-0 z-20 bg-[#f5f6f8]/90 backdrop-blur-md" style={{WebkitBackdropFilter: 'blur(12px)', position: '-webkit-sticky'}}>
-            <button onClick={() => setSelectedItem(null)} className={`w-10 h-10 rounded-full ${theme.shadowFlat} flex items-center justify-center text-gray-500 active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all`}><ArrowLeft size={20} /></button>
+            <button onClick={() => setSelectedItem(null)} className={`w-10 h-10 rounded-full ${theme.shadowFlat} flex items-center justify-center text-gray-500 active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all active:scale-95`}><ArrowLeft size={20} /></button>
             <span className="text-xs uppercase tracking-widest font-bold text-gray-400">{titulosDetalle[type]}</span>
-            <button onClick={handleEliminarClick} className={`w-10 h-10 rounded-full ${theme.shadowFlat} flex items-center justify-center text-red-400 hover:text-red-500 active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all`}><Trash2 size={18} /></button>
+            <button onClick={handleEliminarClick} className={`w-10 h-10 rounded-full ${theme.shadowFlat} flex items-center justify-center text-red-400 hover:text-red-500 active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all active:scale-95`}><Trash2 size={18} /></button>
           </div>
           
           {type === 'expo' && (
@@ -605,7 +659,7 @@
                       <p className="text-[10px] text-gray-400 mt-4 uppercase tracking-widest">Esc para cancelar · Enter para guardar</p>
                    </div>
                 ) : (
-                  <div onClick={() => { setTempImageUrl(data.imagen); setIsEditingImage(true); }} className={`w-full rounded-3xl p-2 ${theme.shadowFlat} cursor-pointer hover:opacity-90 transition-opacity relative group`}>
+                  <div onClick={() => { setTempImageUrl(data.imagen); setIsEditingImage(true); }} className={`w-full rounded-3xl p-2 ${theme.shadowFlat} cursor-pointer hover:opacity-90 transition-opacity relative group active:scale-[0.98]`}>
                     <div className="w-full rounded-2xl overflow-hidden shadow-inner bg-gray-200 aspect-[16/9]">
                       <img src={data.imagen} alt={data.titulo} className="w-full h-full object-cover" />
                     </div>
@@ -655,8 +709,8 @@
                       <div className="flex flex-col gap-3">
                         <textarea autoFocus value={tempResena} onChange={e => setTempResena(e.target.value)} placeholder="Escribe aquí lo que te ha parecido..." className={`w-full bg-transparent text-sm ${theme.textDark} leading-relaxed focus:outline-none min-h-[150px] resize-none`} />
                         <div className="flex justify-end gap-2 mt-2">
-                          <button onClick={() => setIsEditingResena(false)} className="px-4 py-2 rounded-xl text-xs font-bold text-gray-400 uppercase tracking-widest">Cancelar</button>
-                          <button onClick={handleSaveResena} className={`px-4 py-2 rounded-xl ${theme.bgAccent} text-white text-xs font-bold uppercase tracking-widest shadow-md`}>Guardar</button>
+                          <button onClick={() => setIsEditingResena(false)} className="px-4 py-2 rounded-xl text-xs font-bold text-gray-400 uppercase tracking-widest active:scale-95">Cancelar</button>
+                          <button onClick={handleSaveResena} className={`px-4 py-2 rounded-xl ${theme.bgAccent} text-white text-xs font-bold uppercase tracking-widest shadow-md active:scale-95`}>Guardar</button>
                         </div>
                       </div>
                     ) : (
@@ -678,7 +732,7 @@
                       <p className="text-[10px] text-gray-400 mt-4 uppercase tracking-widest">Esc para cancelar · Enter para guardar</p>
                    </div>
                 ) : (
-                  <div onClick={() => { setTempImageUrl(data.imagen); setIsEditingImage(true); }} className={`w-full rounded-3xl p-2 ${theme.shadowFlat} cursor-pointer hover:opacity-90 transition-opacity relative group`}>
+                  <div onClick={() => { setTempImageUrl(data.imagen); setIsEditingImage(true); }} className={`w-full rounded-3xl p-2 ${theme.shadowFlat} cursor-pointer hover:opacity-90 transition-opacity relative group active:scale-[0.98]`}>
                     <div className="w-full rounded-2xl overflow-hidden shadow-inner bg-gray-200">
                       <img src={data.imagen} alt={data.titulo} className="w-full object-cover min-h-[200px]" />
                     </div>
@@ -735,7 +789,7 @@
                       <input autoFocus type="text" value={tempImageUrl} onChange={(e) => setTempImageUrl(e.target.value)} onBlur={handleSaveImageEdit} onKeyDown={handleKeyDownImageEdit} placeholder="URL foto" className="w-full text-center bg-transparent border-b border-[#5b85b5] text-xs text-[#4a5568] focus:outline-none pb-1" />
                    </div>
                 ) : (
-                  <div onClick={() => { setTempImageUrl(data.imagen); setIsEditingImage(true); }} className={`w-40 h-56 rounded-2xl p-1.5 ${theme.shadowFlat} cursor-pointer hover:opacity-90 transition-opacity relative group`}>
+                  <div onClick={() => { setTempImageUrl(data.imagen); setIsEditingImage(true); }} className={`w-40 h-56 rounded-2xl p-1.5 ${theme.shadowFlat} cursor-pointer hover:opacity-90 transition-opacity relative group active:scale-95`}>
                     <div className="w-full h-full rounded-xl overflow-hidden shadow-inner bg-gray-200">
                       <img src={data.imagen} alt={data.titulo} className="w-full h-full object-cover" />
                     </div>
@@ -771,8 +825,8 @@
                     <div className="flex flex-col gap-3">
                       <textarea autoFocus value={tempResena} onChange={e => setTempResena(e.target.value)} placeholder="Anota aquí las lecciones de este libro..." className={`w-full bg-transparent text-sm ${theme.textDark} leading-relaxed focus:outline-none min-h-[150px] resize-none`} />
                       <div className="flex justify-end gap-2 mt-2">
-                        <button onClick={() => setIsEditingResena(false)} className="px-4 py-2 rounded-xl text-xs font-bold text-gray-400 uppercase tracking-widest">Cancelar</button>
-                        <button onClick={handleSaveResena} className={`px-4 py-2 rounded-xl ${theme.bgAccent} text-white text-xs font-bold uppercase tracking-widest shadow-md`}>Guardar</button>
+                        <button onClick={() => setIsEditingResena(false)} className="px-4 py-2 rounded-xl text-xs font-bold text-gray-400 uppercase tracking-widest active:scale-95">Cancelar</button>
+                        <button onClick={handleSaveResena} className={`px-4 py-2 rounded-xl ${theme.bgAccent} text-white text-xs font-bold uppercase tracking-widest shadow-md active:scale-95`}>Guardar</button>
                       </div>
                     </div>
                   ) : (
@@ -832,19 +886,56 @@
       const [isEditingResena, setIsEditingResena] = useState(false);
       const [tempResena, setTempResena] = useState('');
 
-      const [notas, setNotas] = useState(() => getLocalData('atelier_notas'));
-      const [referencias, setReferencias] = useState(() => getLocalData('atelier_referencias'));
-      const [libros, setLibros] = useState(() => getLocalData('atelier_libros'));
-      const [historia, setHistoria] = useState(() => getLocalData('atelier_historia'));
-      const [expos, setExpos] = useState(() => getLocalData('atelier_expos'));
-      const [tecnicas, setTecnicas] = useState(() => getLocalData('atelier_tecnicas'));
+      const [notas, setNotas] = useState([]);
+      const [referencias, setReferencias] = useState([]);
+      const [libros, setLibros] = useState([]);
+      const [historia, setHistoria] = useState([]);
+      const [expos, setExpos] = useState([]);
+      const [tecnicas, setTecnicas] = useState([]);
 
-      useEffect(() => setLocalData('atelier_notas', notas), [notas]);
-      useEffect(() => setLocalData('atelier_referencias', referencias), [referencias]);
-      useEffect(() => setLocalData('atelier_libros', libros), [libros]);
-      useEffect(() => setLocalData('atelier_historia', historia), [historia]);
-      useEffect(() => setLocalData('atelier_expos', expos), [expos]);
-      useEffect(() => setLocalData('atelier_tecnicas', tecnicas), [tecnicas]);
+      useEffect(() => {
+        const loadAllData = async () => {
+          try {
+            // SCRIPT DE MIGRACIÓN: RESCATE DE DATOS ANTIGUOS
+            const storesMap = {
+              'atelier_notas': 'notas',
+              'atelier_referencias': 'referencias',
+              'atelier_libros': 'libros',
+              'atelier_historia': 'historia',
+              'atelier_expos': 'expos',
+              'atelier_tecnicas': 'tecnicas'
+            };
+
+            for (const [localKey, dbStore] of Object.entries(storesMap)) {
+              const localData = localStorage.getItem(localKey);
+              if (localData) {
+                try {
+                  const parsedData = JSON.parse(localData);
+                  if (Array.isArray(parsedData) && parsedData.length > 0) {
+                    const currentDbData = await dbGetAll(dbStore);
+                    if (currentDbData.length === 0) {
+                      for (const item of parsedData) {
+                        await dbSave(dbStore, item);
+                      }
+                    }
+                  }
+                } catch (e) { console.error("Error al migrar datos de " + localKey, e); }
+              }
+            }
+
+            // CARGA NORMAL DESDE INDEXEDDB
+            setNotas(await dbGetAll('notas'));
+            setReferencias(await dbGetAll('referencias'));
+            setLibros(await dbGetAll('libros'));
+            setHistoria(await dbGetAll('historia'));
+            setExpos(await dbGetAll('expos'));
+            setTecnicas(await dbGetAll('tecnicas'));
+          } catch (error) {
+            console.error("Error cargando la base de datos", error);
+          }
+        };
+        loadAllData();
+      }, []);
 
       const [formData, setFormData] = useState({});
       const handleInputChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -862,61 +953,97 @@
 
       const resetForm = () => { setFormData({}); setIsAdding(null); };
 
-      const handleGuardar = () => {
+      const handleGuardar = async () => {
         const id = Date.now();
+        let nuevoItem = null;
+        let storeName = "";
         
         if (isAdding === 'nota') {
-          setNotas([{ id, titulo: formData.titulo || 'Obra sin título', autor: formData.autor || 'Desconocido', año: formData.año || 'S/F', disciplina: formData.disciplina || 'Pintura', imagen: formData.imagen || 'https://images.unsplash.com/photo-1547826039-bfc35e0f1ea8?w=800&q=80', etiquetas: [(formData.disciplina || 'Pintura').toLowerCase()], historia: formData.historia || 'Sin detalles.', inspiracion: formData.inspiracion || 'Sin notas.', evolucion: [] }, ...notas]);
+          storeName = 'notas';
+          nuevoItem = { id, titulo: formData.titulo || 'Obra sin título', autor: formData.autor || 'Desconocido', año: formData.año || 'S/F', disciplina: formData.disciplina || 'Pintura', imagen: formData.imagen || 'https://images.unsplash.com/photo-1547826039-bfc35e0f1ea8?w=800&q=80', etiquetas: [(formData.disciplina || 'Pintura').toLowerCase()], historia: formData.historia || 'Sin detalles.', inspiracion: formData.inspiracion || 'Sin notas.', evolucion: [] };
+          setNotas([nuevoItem, ...notas]);
         } 
         else if (isAdding === 'historia') {
+          storeName = 'historia';
           const etiquetasArray = formData.etiquetas ? formData.etiquetas.split(',').map(e => e.trim()) : [];
-          setHistoria([{ id, tema: formData.tema || 'Apunte sin título', fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }), etiquetas: etiquetasArray, resumen: formData.resumen || 'Sin contenido.' }, ...historia]);
+          nuevoItem = { id, tema: formData.tema || 'Apunte sin título', fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }), etiquetas: etiquetasArray, resumen: formData.resumen || 'Sin contenido.' };
+          setHistoria([nuevoItem, ...historia]);
         }
         else if (isAdding === 'libro') {
-          setLibros([{ id, titulo: formData.titulo || 'Libro sin título', autor: formData.autor || 'S/A', estado: formData.estado || 'Pendiente', progreso: 0, imagen: formData.imagen || 'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=400&q=80', reseña: formData.reseña || '' }, ...libros]);
+          storeName = 'libros';
+          nuevoItem = { id, titulo: formData.titulo || 'Libro sin título', autor: formData.autor || 'S/A', estado: formData.estado || 'Pendiente', progreso: 0, imagen: formData.imagen || 'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=400&q=80', reseña: formData.reseña || '' };
+          setLibros([nuevoItem, ...libros]);
         }
         else if (isAdding === 'galeria') {
-          setReferencias([{ id, img: formData.imagen || 'https://images.unsplash.com/photo-1597255998145-66270ebfc6e1?w=500&q=80', cat: formData.categoria || 'Luz', nota: formData.nota || 'Sin nota' }, ...referencias]);
+          storeName = 'referencias';
+          nuevoItem = { id, img: formData.imagen || 'https://images.unsplash.com/photo-1597255998145-66270ebfc6e1?w=500&q=80', cat: formData.categoria || 'Luz', nota: formData.nota || 'Sin nota' };
+          setReferencias([nuevoItem, ...referencias]);
         }
         else if (isAdding === 'tecnica') {
-          setTecnicas([{ id, titulo: formData.titulo || 'Receta sin título', medio: formData.medio || 'Óleo', pasos: formData.pasos || 'Sin pasos descritos.', imagenesRef: formData.imagenesRef || [] }, ...tecnicas]);
+          storeName = 'tecnicas';
+          nuevoItem = { id, titulo: formData.titulo || 'Receta sin título', medio: formData.medio || 'Óleo', pasos: formData.pasos || 'Sin pasos descritos.', imagenesRef: formData.imagenesRef || [] };
+          setTecnicas([nuevoItem, ...tecnicas]);
         }
         else if (isAdding === 'expo') {
-          setExpos([{ id, titulo: formData.titulo || 'Exposición sin título', lugar: formData.lugar || 'Lugar desconocido', fechaInicio: formData.fechaInicio || '', fechaFin: formData.fechaFin || '', dias: formData.dias || [], esGratis: formData.esGratis === true, precio: formData.esGratis ? '0' : (formData.precio || ''), imagen: formData.imagen || 'https://images.unsplash.com/photo-1531058020387-3be344556be6?w=800&q=80', reseña: formData.reseña || '' }, ...expos]);
+          storeName = 'expos';
+          nuevoItem = { id, titulo: formData.titulo || 'Exposición sin título', lugar: formData.lugar || 'Lugar desconocido', fechaInicio: formData.fechaInicio || '', fechaFin: formData.fechaFin || '', dias: formData.dias || [], esGratis: formData.esGratis === true, precio: formData.esGratis ? '0' : (formData.precio || ''), imagen: formData.imagen || 'https://images.unsplash.com/photo-1531058020387-3be344556be6?w=800&q=80', reseña: formData.reseña || '' };
+          setExpos([nuevoItem, ...expos]);
         }
+
+        if (nuevoItem && storeName) {
+          await dbSave(storeName, nuevoItem);
+        }
+
         resetForm();
       };
 
       const handleEliminarClick = () => setItemToDelete({ type: selectedItem.type, id: selectedItem.data.id, isDetail: true });
       const handleEliminarReferenciaClick = (id) => setItemToDelete({ type: 'referencia', id: id, isDetail: false });
 
-      const confirmarEliminar = () => {
+      const confirmarEliminar = async () => {
+        const storeMap = { nota: 'notas', historia: 'historia', libro: 'libros', referencia: 'referencias', expo: 'expos', tecnica: 'tecnicas' };
+        const storeName = storeMap[itemToDelete.type];
+
+        if (storeName) {
+          await dbDelete(storeName, itemToDelete.id);
+        }
+
         if (itemToDelete.type === 'nota') setNotas(notas.filter(n => n.id !== itemToDelete.id));
         if (itemToDelete.type === 'historia') setHistoria(historia.filter(h => h.id !== itemToDelete.id));
         if (itemToDelete.type === 'libro') setLibros(libros.filter(l => l.id !== itemToDelete.id));
         if (itemToDelete.type === 'referencia') setReferencias(referencias.filter(r => r.id !== itemToDelete.id));
         if (itemToDelete.type === 'expo') setExpos(expos.filter(e => e.id !== itemToDelete.id));
         if (itemToDelete.type === 'tecnica') setTecnicas(tecnicas.filter(t => t.id !== itemToDelete.id));
+        
         if (itemToDelete.isDetail) setSelectedItem(null);
         setItemToDelete(null);
       };
 
-      const handleSaveImageEdit = () => {
+      const handleSaveImageEdit = async () => {
         if (!tempImageUrl.trim()) { setIsEditingImage(false); return; }
+        
+        let storeName = "";
+        let updatedItem = null;
+
         if (selectedItem && selectedItem.type === 'nota') {
-          const updatedNotas = notas.map(nota => nota.id === selectedItem.data.id ? { ...nota, imagen: tempImageUrl } : nota);
-          setNotas(updatedNotas);
-          setSelectedItem({ ...selectedItem, data: { ...selectedItem.data, imagen: tempImageUrl } });
+          updatedItem = { ...selectedItem.data, imagen: tempImageUrl };
+          storeName = 'notas';
+          setNotas(notas.map(nota => nota.id === selectedItem.data.id ? updatedItem : nota));
         }
         else if (selectedItem && selectedItem.type === 'expo') {
-          const updatedExpos = expos.map(expo => expo.id === selectedItem.data.id ? { ...expo, imagen: tempImageUrl } : expo);
-          setExpos(updatedExpos);
-          setSelectedItem({ ...selectedItem, data: { ...selectedItem.data, imagen: tempImageUrl } });
+          updatedItem = { ...selectedItem.data, imagen: tempImageUrl };
+          storeName = 'expos';
+          setExpos(expos.map(expo => expo.id === selectedItem.data.id ? updatedItem : expo));
         }
         else if (selectedItem && selectedItem.type === 'libro') {
-          const updatedLibros = libros.map(libro => libro.id === selectedItem.data.id ? { ...libro, imagen: tempImageUrl } : libro);
-          setLibros(updatedLibros);
-          setSelectedItem({ ...selectedItem, data: { ...selectedItem.data, imagen: tempImageUrl } });
+          updatedItem = { ...selectedItem.data, imagen: tempImageUrl };
+          storeName = 'libros';
+          setLibros(libros.map(libro => libro.id === selectedItem.data.id ? updatedItem : libro));
+        }
+
+        if (updatedItem && storeName) {
+          await dbSave(storeName, updatedItem);
+          setSelectedItem({ ...selectedItem, data: updatedItem });
         }
         setIsEditingImage(false);
       };
@@ -926,16 +1053,24 @@
         if (e.key === 'Escape') setIsEditingImage(false); 
       };
 
-      const handleSaveResena = () => {
+      const handleSaveResena = async () => {
+        let storeName = "";
+        let updatedItem = null;
+
         if (selectedItem && selectedItem.type === 'expo') {
-          const updatedExpos = expos.map(expo => expo.id === selectedItem.data.id ? { ...expo, reseña: tempResena } : expo);
-          setExpos(updatedExpos);
-          setSelectedItem({ ...selectedItem, data: { ...selectedItem.data, reseña: tempResena } });
+          updatedItem = { ...selectedItem.data, reseña: tempResena };
+          storeName = 'expos';
+          setExpos(expos.map(expo => expo.id === selectedItem.data.id ? updatedItem : expo));
         }
         else if (selectedItem && selectedItem.type === 'libro') {
-          const updatedLibros = libros.map(libro => libro.id === selectedItem.data.id ? { ...libro, reseña: tempResena } : libro);
-          setLibros(updatedLibros);
-          setSelectedItem({ ...selectedItem, data: { ...selectedItem.data, reseña: tempResena } });
+          updatedItem = { ...selectedItem.data, reseña: tempResena };
+          storeName = 'libros';
+          setLibros(libros.map(libro => libro.id === selectedItem.data.id ? updatedItem : libro));
+        }
+
+        if (updatedItem && storeName) {
+          await dbSave(storeName, updatedItem);
+          setSelectedItem({ ...selectedItem, data: updatedItem });
         }
         setIsEditingResena(false);
       };
@@ -949,8 +1084,8 @@
               <h3 className={`font-serif text-2xl ${theme.textDark} mb-2`}>¿Eliminar elemento?</h3>
               <p className="text-sm text-gray-500 mb-8 px-4">Esta acción no se puede deshacer y el elemento se borrará de tu estudio.</p>
               <div className="flex gap-4 w-full">
-                <button onClick={() => setItemToDelete(null)} className={`flex-1 py-4 rounded-2xl ${theme.bgMain} ${theme.shadowFlat} text-gray-500 font-bold text-xs uppercase tracking-widest active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all`}>Cancelar</button>
-                <button onClick={confirmarEliminar} className="flex-1 py-4 rounded-2xl bg-red-400 text-white font-bold text-xs uppercase tracking-widest shadow-[4px_4px_10px_#d8dde6,-4px_-4px_10px_#ffffff] active:shadow-inner transition-all">Eliminar</button>
+                <button onClick={() => setItemToDelete(null)} className={`flex-1 py-4 rounded-2xl ${theme.bgMain} ${theme.shadowFlat} text-gray-500 font-bold text-xs uppercase tracking-widest active:shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff] transition-all active:scale-95`}>Cancelar</button>
+                <button onClick={confirmarEliminar} className="flex-1 py-4 rounded-2xl bg-red-400 text-white font-bold text-xs uppercase tracking-widest shadow-[4px_4px_10px_#d8dde6,-4px_-4px_10px_#ffffff] active:shadow-inner transition-all active:scale-95">Eliminar</button>
               </div>
             </div>
           </div>
@@ -977,10 +1112,10 @@
 
       return (
         <div className={`min-h-screen ${theme.bgMain} font-sans flex justify-center`}>
-          <div className={`w-full max-w-md relative shadow-2xl ${theme.bgMain} overflow-hidden flex flex-col h-screen-safe`}>
+          <div className={`w-full relative ${theme.bgMain} overflow-hidden flex flex-col h-screen-safe`}>
             {renderModal()}
             {showBottomNav && (
-              <header className="px-6 pt-12 pb-4 safe-top flex justify-between items-end flex-shrink-0 z-10">
+              <header className="px-6 pb-4 flex justify-between items-end flex-shrink-0 z-10" style={{paddingTop: 'max(env(safe-area-inset-top, 48px), 48px)'}}>
                 <div>
                   <h1 className={`${theme.textDark} text-2xl font-light tracking-wide flex items-baseline gap-2`}>
                     Atelier <span className="text-sm text-gray-400 font-sans">アトリエ</span>
@@ -1003,7 +1138,7 @@
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App />);
 </script>
-```
-
 </body>
 </html>
+
+
