@@ -1,1577 +1,655 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <title>Atelier アトリエ</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --bg: #eceef3;
-      --sh-light: rgba(255,255,255,0.95);
-      --sh-dark: rgba(150,162,185,0.55);
-      --text: #3a4157;
-      --text-muted: #73809c;
-      --accent: #b97860;
-      --accent2: #7a9e96;
-      --radius: 20px;
-      --radius-sm: 14px;
-      --nav-h: 76px;
+import React, { useState, useEffect } from 'react';
+import { 
+  Home, Target, Book, FileText, Image as ImageIcon, 
+  ArrowLeft, Plus, Check, Search, 
+  Landmark, Bookmark, Tag, Clock, Trash2, Info, Edit2
+} from 'lucide-react';
+
+const App = () => {
+  // --- ESTADOS DE NAVEGACIÓN ---
+  const [activeTab, setActiveTab] = useState('inicio');
+  const [selectedItem, setSelectedItem] = useState(null); 
+  const [isAdding, setIsAdding] = useState(null); 
+  const [filtroGaleria, setFiltroGaleria] = useState('Todas');
+
+  const [isEditingImage, setIsEditingImage] = useState(false);
+  const [tempImageUrl, setTempImageUrl] = useState('');
+  
+  // Estado para la ventana modal de confirmación de borrado
+  const [itemToDelete, setItemToDelete] = useState(null);
+
+  // --- ESTILOS NEUMÓRFICOS ---
+  const bgMain = "bg-[#f5f6f8]";
+  const textDark = "text-[#4a5568]";
+  const bgAccent = "bg-[#5b85b5]";
+  
+  const shadowFlat = "shadow-[6px_6px_16px_#d8dde6,-6px_-6px_16px_#ffffff]";
+  const shadowInset = "shadow-[inset_4px_4px_8px_#d8dde6,inset_-4px_-4px_8px_#ffffff]";
+  const shadowPressed = "shadow-[inset_6px_6px_12px_#d8dde6,inset_-6px_-6px_12px_#ffffff]";
+
+  // --- BASE DE DATOS (EMPIEZA VACÍA + PERSISTENCIA) ---
+  const [notas, setNotas] = useState(() => JSON.parse(localStorage.getItem('atelier_notas')) || []);
+  const [referencias, setReferencias] = useState(() => JSON.parse(localStorage.getItem('atelier_referencias')) || []);
+  const [libros, setLibros] = useState(() => JSON.parse(localStorage.getItem('atelier_libros')) || []);
+  const [historia, setHistoria] = useState(() => JSON.parse(localStorage.getItem('atelier_historia')) || []);
+
+  useEffect(() => localStorage.setItem('atelier_notas', JSON.stringify(notas)), [notas]);
+  useEffect(() => localStorage.setItem('atelier_referencias', JSON.stringify(referencias)), [referencias]);
+  useEffect(() => localStorage.setItem('atelier_libros', JSON.stringify(libros)), [libros]);
+  useEffect(() => localStorage.setItem('atelier_historia', JSON.stringify(historia)), [historia]);
+
+  // --- LÓGICA DE FORMULARIOS ---
+  const [formData, setFormData] = useState({});
+  const handleInputChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+
+  const resetForm = () => {
+    setFormData({});
+    setIsAdding(null);
+  };
+
+  const handleGuardar = () => {
+    const id = Date.now();
+    
+    if (isAdding === 'nota') {
+      setNotas([{ 
+        id, 
+        titulo: formData.titulo || 'Obra sin título', 
+        autor: formData.autor || 'Desconocido', 
+        año: formData.año || 'S/F', 
+        disciplina: formData.disciplina || 'Pintura',
+        imagen: formData.imagen || 'https://images.unsplash.com/photo-1547826039-bfc35e0f1ea8?w=800&q=80',
+        etiquetas: [(formData.disciplina || 'Pintura').toLowerCase()], 
+        historia: formData.historia || 'Sin detalles.', 
+        inspiracion: formData.inspiracion || 'Sin notas de inspiración.', 
+        evolucion: []
+      }, ...notas]);
+    } 
+    else if (isAdding === 'historia') {
+      const etiquetasArray = formData.etiquetas ? formData.etiquetas.split(',').map(e => e.trim()) : [];
+      setHistoria([{ 
+        id, 
+        tema: formData.tema || 'Apunte sin título', 
+        fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }), 
+        etiquetas: etiquetasArray, 
+        resumen: formData.resumen || 'Sin contenido.' 
+      }, ...historia]);
     }
-    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-    body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; height:100vh; height:-webkit-fill-available; overflow:hidden; }
-    .neu { box-shadow:8px 8px 18px var(--sh-dark),-8px -8px 18px var(--sh-light); }
-    .neu-sm { box-shadow:5px 5px 10px var(--sh-dark),-5px -5px 10px var(--sh-light); }
-    .neu-inset { box-shadow:inset 4px 4px 9px var(--sh-dark),inset -4px -4px 9px var(--sh-light); }
-    #app { width:100%; height:100vh; height:-webkit-fill-available; display:flex; flex-direction:column; }
-    .app-header { flex-shrink:0; padding:18px 24px 14px; padding-top:calc(18px + env(safe-area-inset-top)); display:flex; justify-content:space-between; align-items:flex-end; }
-    .app-wordmark { font-family:'Cormorant Garamond',serif; font-size:26px; font-weight:300; letter-spacing:0.02em; }
-    .app-wordmark small { font-size:15px; color:var(--text-muted); }
-    .header-right { display:flex; align-items:center; gap:15px; }
-    .header-section { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em; }
-    .backup-btn { background:none; border:none; font-size:16px; cursor:pointer; color:var(--text-muted); transition:color 0.2s; }
-    .backup-btn:hover { color:var(--accent); }
-    #views { flex:1; overflow:hidden; position:relative; }
-    .view { position:absolute; inset:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:10px 20px; padding-bottom:calc(var(--nav-h) + 24px + env(safe-area-inset-bottom)); display:none; }
-    .view.active { display:block; }
-    .view::-webkit-scrollbar { width:0; }
-
-    /* ─── SCROLLABLE NAV ─── */
-    .bottom-nav {
-      position:fixed; bottom:0; left:0; right:0;
-      height:var(--nav-h);
-      padding-bottom:env(safe-area-inset-bottom);
-      display:flex; align-items:center;
-      background:var(--bg);
-      box-shadow:0 -3px 18px rgba(150,162,185,0.25);
-      z-index:100;
-      overflow-x:auto; -webkit-overflow-scrolling:touch;
-      scrollbar-width:none;
+    else if (isAdding === 'libro') {
+      setLibros([{ 
+        id, 
+        titulo: formData.titulo || 'Libro sin título', 
+        autor: formData.autor || 'S/A', 
+        estado: formData.estado || 'Pendiente', 
+        progreso: 0, 
+        imagen: formData.imagen || 'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=400&q=80', 
+        reseña: formData.reseña || '' 
+      }, ...libros]);
     }
-    .bottom-nav::-webkit-scrollbar { display:none; }
-    .nav-btn {
-      display:flex; flex-direction:column; align-items:center; gap:4px;
-      padding:8px 9px; border:none; background:none; cursor:pointer;
-      color:var(--text-muted); font-size:8.5px; font-family:'DM Sans',sans-serif;
-      letter-spacing:0.05em; text-transform:uppercase; transition:color 0.2s;
-      flex-shrink:0; min-width:56px;
+    else if (isAdding === 'galeria') {
+      setReferencias([{ 
+        id, 
+        img: formData.imagen || 'https://images.unsplash.com/photo-1597255998145-66270ebfc6e1?w=500&q=80', 
+        cat: formData.categoria || 'Luz', 
+        nota: formData.nota || 'Sin nota' 
+      }, ...referencias]);
     }
-    .nav-btn.active { color:var(--accent); }
-    .nav-btn svg { width:20px; height:20px; stroke-width:1.5; transition:all 0.2s; }
-    .nav-sep { width:1px; height:28px; background:rgba(150,162,185,0.2); flex-shrink:0; margin:0 2px; }
-
-    /* ─── CARDS ─── */
-    .card { background:var(--bg); border-radius:var(--radius); padding:18px; margin-bottom:13px; box-shadow:8px 8px 18px var(--sh-dark),-8px -8px 18px var(--sh-light); cursor:pointer; transition:box-shadow 0.2s; }
-    .card:active { box-shadow:4px 4px 10px var(--sh-dark),-4px -4px 10px var(--sh-light); }
-
-    /* ─── FAB ─── */
-    .fab { position:fixed; bottom:calc(var(--nav-h) + 14px + env(safe-area-inset-bottom)); right:20px; width:52px; height:52px; border-radius:50%; border:none; background:var(--bg); color:var(--accent); font-size:26px; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:7px 7px 14px var(--sh-dark),-7px -7px 14px var(--sh-light); z-index:90; transition:box-shadow 0.15s; }
-    .fab:active { box-shadow:inset 3px 3px 7px var(--sh-dark),inset -3px -3px 7px var(--sh-light); }
-
-    /* ─── MODAL ─── */
-    .modal-overlay { position:fixed; inset:0; background:rgba(236,238,243,0.7); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); z-index:200; display:none; align-items:flex-end; justify-content:center; }
-    .modal-overlay.open { display:flex; }
-    .modal-sheet { width:100%; max-width:480px; background:var(--bg); border-radius:28px 28px 0 0; padding:20px 24px calc(24px + env(safe-area-inset-bottom)); box-shadow:0 -6px 30px rgba(150,162,185,0.35); max-height:92vh; overflow-y:auto; -webkit-overflow-scrolling:touch; }
-    .modal-handle { width:38px; height:4px; background:var(--sh-dark); border-radius:2px; margin:0 auto 20px; }
-    .modal-title { font-family:'Cormorant Garamond',serif; font-size:22px; font-weight:400; margin-bottom:20px; }
-
-    /* ─── FORM ─── */
-    .field { margin-bottom:16px; }
-    .field label { display:block; font-size:10px; text-transform:uppercase; letter-spacing:0.09em; color:var(--text-muted); margin-bottom:8px; }
-    .field input,.field textarea,.field select { width:100%; padding:12px 16px; border:none; border-radius:var(--radius-sm); background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; font-size:14px; outline:none; -webkit-appearance:none; box-shadow:inset 4px 4px 9px var(--sh-dark),inset -4px -4px 9px var(--sh-light); }
-    .field textarea { resize:none; min-height:90px; line-height:1.55; }
-    .field select option { background:#eceef3; }
-
-    /* ─── BUTTONS ─── */
-    .btn { padding:12px 22px; border:none; border-radius:var(--radius-sm); background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; font-size:14px; font-weight:500; cursor:pointer; box-shadow:5px 5px 10px var(--sh-dark),-5px -5px 10px var(--sh-light); transition:box-shadow 0.15s; }
-    .btn:active { box-shadow:inset 3px 3px 6px var(--sh-dark),inset -3px -3px 6px var(--sh-light); }
-    .btn-accent { background:linear-gradient(135deg,var(--accent),#d09a82); color:#fff; box-shadow:5px 5px 10px var(--sh-dark),-5px -5px 10px var(--sh-light); }
-    .btn-teal { background:linear-gradient(135deg,var(--accent2),#9bbfb7); color:#fff; }
-    .btn-row { display:flex; gap:12px; margin-top:10px; }
-    .btn-row .btn { flex:1; text-align:center; }
-
-    /* ─── HOME ─── */
-    .greeting { font-family:'Cormorant Garamond',serif; font-size:30px; font-weight:300; font-style:italic; margin-bottom:3px; }
-    .home-date { font-size:11px; color:var(--text-muted); letter-spacing:0.08em; margin-bottom:22px; }
-    .practice-card { background:linear-gradient(145deg,#e6e9f0,#ffffff); border-radius:var(--radius); padding:18px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; box-shadow:8px 8px 18px var(--sh-dark),-8px -8px 18px var(--sh-light); }
-    .stats-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:22px; }
-    .stat-card { background:var(--bg); border-radius:var(--radius-sm); padding:15px 10px; text-align:center; box-shadow:6px 6px 13px var(--sh-dark),-6px -6px 13px var(--sh-light); }
-    .stat-num { font-family:'Cormorant Garamond',serif; font-size:30px; font-weight:500; color:var(--accent); line-height:1; }
-    .stat-label { font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.07em; margin-top:4px; }
-    .section-label { font-family:'Cormorant Garamond',serif; font-size:16px; color:var(--text-muted); margin-bottom:12px; }
-    .quote-card { background:var(--bg); border-radius:var(--radius); padding:22px; margin-bottom:14px; box-shadow:8px 8px 18px var(--sh-dark),-8px -8px 18px var(--sh-light); border-left:3px solid var(--accent); }
-    .quote-text { font-family:'Cormorant Garamond',serif; font-size:17px; font-style:italic; font-weight:300; line-height:1.65; margin-bottom:8px; }
-    .quote-source { font-size:11px; color:var(--text-muted); }
-
-    /* ─── BADGES ─── */
-    .pill { display:inline-block; font-size:10px; padding:3px 9px; border-radius:20px; background:var(--bg); color:var(--accent); box-shadow:3px 3px 6px var(--sh-dark),-3px -3px 6px var(--sh-light); margin-top:7px; }
-    .status-badge { font-size:10px; padding:3px 10px; border-radius:20px; display:inline-block; margin-bottom:7px; }
-    .s-boceto { background:#e8f3fd; color:#1a6ab5; }
-    .s-proceso { background:#fff3e0; color:#c65000; }
-    .s-terminado { background:#e2f5ea; color:#256635; }
-    .s-pausa { background:#fce4ec; color:#8a0e40; }
-    .badge-pending { background:#fef3e2; color:#a06020; }
-    .badge-visited { background:#e2f5ea; color:#256635; }
-
-    /* ─── VIEW TITLE ─── */
-    .view-title { font-family:'Cormorant Garamond',serif; font-size:22px; font-weight:400; margin-bottom:16px; display:flex; justify-content:space-between; align-items:baseline; }
-    .view-title span { font-size:11px; color:var(--text-muted); font-family:'DM Sans',sans-serif; }
-
-    /* ─── DETAIL OVERLAY ─── */
-    .detail-overlay { position:fixed; inset:0; background:var(--bg); z-index:150; display:none; flex-direction:column; overflow:hidden; }
-    .detail-overlay.open { display:flex; }
-    .detail-header { padding:16px 20px; padding-top:calc(16px + env(safe-area-inset-top)); display:flex; align-items:center; gap:14px; flex-shrink:0; box-shadow:0 2px 10px rgba(150,162,185,0.12); }
-    .back-btn { width:40px; height:40px; border-radius:50%; border:none; background:var(--bg); box-shadow:5px 5px 10px var(--sh-dark),-5px -5px 10px var(--sh-light); cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--text); flex-shrink:0; }
-    .detail-body-wrap { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:16px 22px; padding-bottom:40px; }
-    .detail-body-wrap::-webkit-scrollbar { width:0; }
-    .detail-big-title { font-family:'Cormorant Garamond',serif; font-size:30px; font-weight:400; font-style:italic; line-height:1.2; margin-bottom:6px; }
-    .detail-meta { font-size:13px; color:var(--text-muted); margin-bottom:18px; }
-    .detail-text { font-size:15px; line-height:1.75; color:var(--text); white-space:pre-wrap; }
-    .delete-btn { margin-top:28px; width:100%; padding:13px; border:none; border-radius:var(--radius-sm); background:var(--bg); color:#d07070; font-family:'DM Sans',sans-serif; font-size:13px; cursor:pointer; box-shadow:5px 5px 10px var(--sh-dark),-5px -5px 10px var(--sh-light); }
-    .divider { height:1px; background:linear-gradient(90deg,transparent,var(--sh-dark),transparent); margin:20px 0; }
-    .empty { text-align:center; padding:60px 20px; }
-    .empty-icon { font-size:52px; margin-bottom:14px; }
-    .empty-text { font-family:'Cormorant Garamond',serif; font-size:18px; font-style:italic; color:var(--text-muted); }
-
-    /* ─── MI CAMINO ─── */
-    .level-hero { background:var(--bg); border-radius:var(--radius); padding:24px; margin-bottom:18px; box-shadow:8px 8px 18px var(--sh-dark),-8px -8px 18px var(--sh-light); }
-    .level-emoji-big { font-size:44px; line-height:1; margin-bottom:8px; }
-    .level-name { font-family:'Cormorant Garamond',serif; font-size:32px; font-weight:400; margin-bottom:4px; }
-    .level-quote { font-size:13px; color:var(--text-muted); font-style:italic; margin-bottom:18px; }
-    .xp-bar-wrap { background:var(--bg); border-radius:8px; height:10px; box-shadow:inset 3px 3px 6px var(--sh-dark),inset -3px -3px 6px var(--sh-light); overflow:hidden; margin-bottom:8px; }
-    .xp-bar-fill { height:100%; border-radius:8px; background:linear-gradient(90deg,var(--accent2),var(--accent)); transition:width 0.8s ease; }
-    .xp-label { font-size:11px; color:var(--text-muted); display:flex; justify-content:space-between; }
-
-    .fund-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:18px; }
-    .fund-card { background:var(--bg); border-radius:var(--radius-sm); padding:14px; box-shadow:6px 6px 13px var(--sh-dark),-6px -6px 13px var(--sh-light); }
-    .fund-icon { font-size:20px; margin-bottom:6px; }
-    .fund-name { font-size:11px; font-weight:500; color:var(--text); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px; }
-    .fund-sessions { font-family:'Cormorant Garamond',serif; font-size:24px; font-weight:500; color:var(--accent); line-height:1; margin-bottom:6px; }
-    .fund-sub { font-size:10px; color:var(--text-muted); margin-bottom:8px; }
-    .fund-bar-wrap { background:var(--bg); border-radius:4px; height:5px; box-shadow:inset 2px 2px 4px var(--sh-dark),inset -2px -2px 4px var(--sh-light); overflow:hidden; }
-    .fund-bar-fill { height:100%; border-radius:4px; background:linear-gradient(90deg,var(--accent2),var(--accent)); }
-
-    .xp-history-item { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid rgba(150,162,185,0.15); }
-    .xp-history-item:last-child { border-bottom:none; }
-    .xp-history-desc { font-size:13px; color:var(--text); }
-    .xp-history-date { font-size:10px; color:var(--text-muted); }
-    .xp-amount-pos { font-family:'Cormorant Garamond',serif; font-size:18px; font-weight:500; color:var(--accent2); }
-
-    /* ─── RETOS ─── */
-    .reto-active-card { background:var(--bg); border-radius:var(--radius); padding:22px; margin-bottom:18px; box-shadow:8px 8px 18px var(--sh-dark),-8px -8px 18px var(--sh-light); border-left:3px solid var(--accent); }
-    .reto-card { background:var(--bg); border-radius:var(--radius); padding:16px; margin-bottom:10px; box-shadow:6px 6px 14px var(--sh-dark),-6px -6px 14px var(--sh-light); }
-    .reto-card.done { opacity:0.55; }
-    .reto-fund-tag { font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:var(--accent2); margin-bottom:6px; }
-    .reto-title { font-family:'Cormorant Garamond',serif; font-size:19px; font-weight:500; margin-bottom:6px; }
-    .reto-desc { font-size:13px; color:var(--text-muted); line-height:1.55; margin-bottom:12px; }
-    .reto-footer { display:flex; justify-content:space-between; align-items:center; }
-    .reto-xp-badge { font-size:11px; color:#256635; background:#e2f5ea; padding:3px 10px; border-radius:12px; }
-    .reto-diff { font-size:10px; color:var(--text-muted); }
-
-    /* ─── MAESTROS ─── */
-    .maestro-card { background:var(--bg); border-radius:var(--radius); padding:18px; margin-bottom:13px; box-shadow:8px 8px 18px var(--sh-dark),-8px -8px 18px var(--sh-light); cursor:pointer; }
-    .maestro-card:active { box-shadow:4px 4px 10px var(--sh-dark),-4px -4px 10px var(--sh-light); }
-    .maestro-top { display:flex; gap:14px; align-items:flex-start; }
-    .maestro-emoji-box { font-size:30px; width:52px; height:52px; display:flex; align-items:center; justify-content:center; background:var(--bg); border-radius:var(--radius-sm); box-shadow:5px 5px 10px var(--sh-dark),-5px -5px 10px var(--sh-light); flex-shrink:0; }
-    .maestro-name { font-family:'Cormorant Garamond',serif; font-size:20px; font-weight:500; }
-    .maestro-period { font-size:11px; color:var(--text-muted); margin-top:2px; }
-    .maestro-style { font-size:11px; color:var(--accent2); margin-top:2px; }
-    .maestro-lesson { font-family:'Cormorant Garamond',serif; font-size:15px; font-style:italic; color:var(--text-muted); margin-top:12px; line-height:1.6; padding-top:12px; border-top:1px solid rgba(150,162,185,0.18); }
-    .maestro-fund { font-size:10px; text-transform:uppercase; letter-spacing:0.07em; color:var(--accent2); margin-top:6px; }
-    .studying-badge { font-size:10px; padding:2px 8px; border-radius:12px; background:#e8f3fd; color:#1a6ab5; display:inline-block; }
-
-    /* ─── XP TOAST ─── */
-    #xp-toast { position:fixed; top:calc(76px + env(safe-area-inset-top)); right:16px; background:var(--bg); color:var(--accent2); padding:10px 16px; border-radius:var(--radius-sm); font-size:14px; font-weight:500; box-shadow:6px 6px 14px var(--sh-dark),-6px -6px 14px var(--sh-light); z-index:300; opacity:0; transform:translateY(-8px); transition:opacity 0.3s,transform 0.3s; pointer-events:none; }
-    #xp-toast.show { opacity:1; transform:translateY(0); }
-
-    /* ─── FUNDAMENTO SELECTOR ─── */
-    .fund-selector { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:4px; }
-    .fund-opt { padding:10px 12px; border:none; border-radius:var(--radius-sm); background:var(--bg); color:var(--text-muted); font-family:'DM Sans',sans-serif; font-size:12px; cursor:pointer; box-shadow:4px 4px 8px var(--sh-dark),-4px -4px 8px var(--sh-light); transition:all 0.15s; text-align:left; }
-    .fund-opt.selected { color:var(--accent); box-shadow:inset 3px 3px 6px var(--sh-dark),inset -3px -3px 6px var(--sh-light); }
-    .day-btn { width:38px; height:38px; border:none; border-radius:50%; background:var(--bg); color:var(--text-muted); font-family:'DM Sans',sans-serif; font-size:13px; font-weight:500; cursor:pointer; box-shadow:4px 4px 8px var(--sh-dark),-4px -4px 8px var(--sh-light); transition:all 0.15s; }
-    .day-btn.on { color:#fff; background:var(--accent); box-shadow:inset 2px 2px 5px rgba(0,0,0,0.15); }
-
-    @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
-    .card,.stat-card,.reto-card,.reto-active-card,.maestro-card,.fund-card,.level-hero { animation:fadeUp 0.3s ease both; }
-  </style>
-</head>
-<body>
-<div id="app">
-
-  <!-- HEADER -->
-  <div class="app-header">
-    <div class="app-wordmark">Atelier <small>アトリエ</small></div>
-    <div class="header-right">
-      <div class="header-section" id="hdr-section">Estudio</div>
-      <button class="backup-btn" onclick="exportData()" title="Exportar copia de seguridad"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
-      <label class="backup-btn" title="Importar copia de seguridad" style="cursor:pointer;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><input type="file" accept=".json" hidden onchange="importData(event)"></label>
-    </div>
-  </div>
-
-  <!-- VIEWS -->
-  <div id="views">
-
-    <!-- HOME -->
-    <div class="view active" id="view-home">
-      <div class="greeting" id="greeting"></div>
-      <div class="home-date" id="home-date"></div>
-
-      <div class="practice-card" id="practice-card">
-        <div>
-          <div style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600;">Práctica Diaria</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:4px;" id="streak-text">0 días seguidos</div>
-        </div>
-        <button class="btn btn-accent" id="btn-practice" onclick="openPracticeModal()" style="padding:10px 16px;font-size:13px;">Practicar</button>
-      </div>
-
-      <div id="home-level-mini" style="margin-bottom:20px;"></div>
-
-      <div class="stats-grid" id="stats-grid"></div>
-
-      <div class="section-label">Última reflexión</div>
-      <div id="home-quote"></div>
-
-      <div class="section-label" style="margin-top:18px;">Reto activo</div>
-      <div id="home-reto"></div>
-
-      <div class="section-label" style="margin-top:18px;">Próximas exposiciones</div>
-      <div id="home-expos"></div>
-
-      <div class="section-label" style="margin-top:18px;">Obras en proceso</div>
-      <div id="home-works"></div>
-    </div>
-
-    <!-- BIBLIOTECA -->
-    <div class="view" id="view-books">
-      <div class="view-title">Biblioteca <span id="cnt-books"></span></div>
-      <div id="books-list"></div>
-    </div>
-
-    <!-- NOTAS -->
-    <div class="view" id="view-notes">
-      <div class="view-title">Notas <span id="cnt-notes"></span></div>
-      <div id="notes-list"></div>
-    </div>
-
-    <!-- GALERÍA -->
-    <div class="view" id="view-gallery">
-      <div class="view-title">Galería <span id="cnt-gallery"></span></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:13px;" id="gallery-list"></div>
-    </div>
-
-    <!-- EXPOSICIONES -->
-    <div class="view" id="view-expos">
-      <div class="view-title">Exposiciones <span id="cnt-expos"></span></div>
-      <div id="expos-list"></div>
-    </div>
-
-    <!-- OBRAS -->
-    <div class="view" id="view-works">
-      <div class="view-title">Mis obras <span id="cnt-works"></span></div>
-      <div id="works-list"></div>
-    </div>
-
-    <!-- TÉCNICAS -->
-    <div class="view" id="view-techs">
-      <div class="view-title">Técnicas <span id="cnt-techs"></span></div>
-      <div id="techs-list"></div>
-    </div>
-
-    <!-- MI CAMINO -->
-    <div class="view" id="view-camino">
-      <div class="view-title">道 Mi Camino</div>
-      <div id="camino-content"></div>
-    </div>
-
-    <!-- RETOS -->
-    <div class="view" id="view-retos">
-      <div class="view-title">練習 Retos <span id="cnt-retos"></span></div>
-      <div id="retos-content"></div>
-    </div>
-
-    <!-- MAESTROS -->
-    <div class="view" id="view-maestros">
-      <div class="view-title">師 Maestros</div>
-      <div id="maestros-content"></div>
-    </div>
-
-  </div>
-
-  <!-- FAB -->
-  <button class="fab" id="fab" onclick="openModal()" aria-label="Añadir nuevo" style="display:none">+</button>
-
-  <!-- XP TOAST -->
-  <div id="xp-toast"></div>
-
-  <!-- NAV -->
-  <nav class="bottom-nav">
-    <button class="nav-btn active" onclick="go('home',this,'Estudio')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Inicio
-    </button>
-    <button class="nav-btn" id="nav-camino" onclick="go('camino',this,'Mi Camino')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>道 Camino
-    </button>
-    <button class="nav-btn" id="nav-retos" onclick="go('retos',this,'Retos')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Retos
-    </button>
-    <button class="nav-btn" id="nav-maestros" onclick="go('maestros',this,'Maestros')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Maestros
-    </button>
-    <div class="nav-sep"></div>
-    <button class="nav-btn" onclick="go('books',this,'Biblioteca')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>Libros
-    </button>
-    <button class="nav-btn" onclick="go('notes',this,'Notas')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Notas
-    </button>
-    <button class="nav-btn" onclick="go('gallery',this,'Galería')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>Galería
-    </button>
-    <button class="nav-btn" onclick="go('expos',this,'Exposiciones')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Expos
-    </button>
-    <button id="nav-works" class="nav-btn" onclick="go('works',this,'Mis obras')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="M8.56 2.75c4.37 6.03 6.02 9.42 8.03 17.72m2.54-15.38c-3.72 4.35-8.94 5.66-16.88 5.85m19.5 1.9c-3.5-.93-6.63-.82-8.94 0-2.58.92-5.01 2.86-7.44 6.32"/></svg>Obras
-    </button>
-    <button class="nav-btn" onclick="go('techs',this,'Técnicas')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Técnicas
-    </button>
-  </nav>
-
-</div>
-
-<!-- ─── MODALES CREACIÓN ─── -->
-
-<!-- PRÁCTICA MODAL (NUEVO) -->
-<div class="modal-overlay" id="m-practice">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div>
-    <div class="modal-title">Sesión de práctica</div>
-    <div class="field">
-      <label>¿Qué fundamento trabajaste?</label>
-      <div class="fund-selector" id="fund-selector">
-        <button class="fund-opt" data-fund="valor" onclick="selectFund(this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 010 18" fill="currentColor"/></svg> Valor</button>
-        <button class="fund-opt" data-fund="color" onclick="selectFund(this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg> Color</button>
-        <button class="fund-opt" data-fund="composicion" onclick="selectFund(this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg> Composición</button>
-        <button class="fund-opt" data-fund="perspectiva" onclick="selectFund(this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 3 21 19 3 19"/><line x1="12" y1="8" x2="12" y2="19"/></svg> Perspectiva</button>
-        <button class="fund-opt" data-fund="bordes" onclick="selectFund(this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="3" y1="9" x2="21" y2="9" stroke-width="2.5"/><line x1="3" y1="15" x2="21" y2="15" stroke-width="0.8" stroke-opacity="0.5"/></svg> Bordes</button>
-        <button class="fund-opt" data-fund="pincelada" onclick="selectFund(this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 17c3-3 5-6 9-6s6 4 9 4"/><path d="M3 17c0 2 1 3 3 3s3-2 3-4"/></svg> Pincelada</button>
-      </div>
-    </div>
-    <div class="field">
-      <label>Minutos practicados</label>
-      <input id="p-mins" type="number" placeholder="30" min="1" max="480">
-    </div>
-    <div class="field">
-      <label>Nota de la sesión (opcional)</label>
-      <textarea id="p-note" placeholder="Qué aprendiste, qué funcionó, qué mejorar..."></textarea>
-    </div>
-    <div class="btn-row">
-      <button class="btn" onclick="closeM('m-practice')">Cancelar</button>
-      <button class="btn btn-accent" onclick="savePractice()" style="display:flex;align-items:center;justify-content:center;gap:6px;">${ico('check')} Guardar +10 XP</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="m-book">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div><div class="modal-title">Añadir libro</div>
-    <div class="field"><label>Título</label><input id="b-title" placeholder="Título del libro"></div>
-    <div class="field"><label>Autor</label><input id="b-author" placeholder="Autor"></div>
-    <div class="field"><label>Año</label><input id="b-year" type="number" placeholder="2024"></div>
-    <div class="field"><label>Categoría</label><select id="b-cat"><option>Pintura</option><option>Fotografía</option><option>Diseño</option><option>Arte</option><option>Otro</option></select></div>
-    <div class="field"><label>Emoji portada</label><input id="b-emoji" placeholder="📗" style="text-align:center;font-size:20px;"></div>
-    <div class="field"><label>Valoración (1-5)</label><input id="b-rating" type="number" min="1" max="5" placeholder="5"></div>
-    <div class="btn-row"><button class="btn" onclick="closeM('m-book')">Cancelar</button><button class="btn btn-accent" onclick="saveBook()">Guardar</button></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="m-note">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div><div class="modal-title">Nueva nota</div>
-    <div class="field"><label>Título</label><input id="n-title" placeholder="Título"></div>
-    <div class="field"><label>Tipo</label>
-      <select id="n-tipo"><option value="reflexion">Reflexión</option><option value="tecnica">Técnica</option><option value="inspiracion">Inspiración</option><option value="critica">Autocrítica</option></select>
-    </div>
-    <div class="field"><label>Fundamento relacionado</label>
-      <select id="n-fund"><option value="">— Sin fundamento —</option><option value="valor">Valor</option><option value="color">Color</option><option value="composicion">Composición</option><option value="perspectiva">Perspectiva</option><option value="bordes">Bordes</option><option value="pincelada">Pincelada</option></select>
-    </div>
-    <div class="field"><label>Libro relacionado</label><select id="n-book"><option value="">— Sin libro —</option></select></div>
-    <div class="field"><label>Contenido</label><textarea id="n-content" placeholder="Escribe tu reflexión..." rows="4"></textarea></div>
-    <div class="field"><label>Etiquetas (separadas por coma)</label><input id="n-tags" placeholder="luz, color, composición"></div>
-    <div class="btn-row"><button class="btn" onclick="closeM('m-note')">Cancelar</button><button class="btn btn-accent" onclick="saveNote()">Guardar</button></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="m-gallery">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div><div class="modal-title">Añadir referencia</div>
-    <div class="field"><label>Título</label><input id="g-title" placeholder="Nombre"></div>
-    <div class="field"><label>Artista</label><input id="g-artist" placeholder="Artista"></div>
-    <div class="field"><label>URL Imagen</label><input id="g-url" type="url" placeholder="https://..."></div>
-    <div class="field"><label>Emoji (si no hay URL)</label><input id="g-emoji" placeholder="🎨" style="text-align:center;font-size:20px;"></div>
-    <div class="field"><label>Notas</label><textarea id="g-notes" placeholder="Qué me inspira..." rows="3"></textarea></div>
-    <div class="btn-row"><button class="btn" onclick="closeM('m-gallery')">Cancelar</button><button class="btn btn-accent" onclick="saveGallery()">Guardar</button></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="m-expo">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div><div class="modal-title">Añadir expo</div>
-    <div class="field"><label>Título</label><input id="e-title" placeholder="Nombre de la exposición"></div>
-    <div class="field"><label>Tipo</label>
-      <select id="e-tipo">
-        <option value="museo">Museo</option>
-        <option value="galeria">Galería</option>
-        <option value="feria">Feria de arte</option>
-        <option value="fundacion">Fundación</option>
-        <option value="exterior">Espacio exterior</option>
-        <option value="otro">Otro</option>
-      </select>
-    </div>
-    <div class="field"><label>Centro / Espacio</label><input id="e-venue" placeholder="Museo del Prado, Sala Fundación MAPFRE…"></div>
-    <div class="field"><label>Dirección</label><input id="e-loc" placeholder="Calle, número, ciudad"></div>
-    <div class="field"><label>Desde</label><input id="e-from" type="date"></div>
-    <div class="field"><label>Hasta</label><input id="e-to" type="date"></div>
-    <div class="field">
-      <label>Días que abre</label>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button type="button" class="day-btn" data-day="L" onclick="toggleDay(this)">L</button>
-        <button type="button" class="day-btn" data-day="M" onclick="toggleDay(this)">M</button>
-        <button type="button" class="day-btn" data-day="X" onclick="toggleDay(this)">X</button>
-        <button type="button" class="day-btn" data-day="J" onclick="toggleDay(this)">J</button>
-        <button type="button" class="day-btn" data-day="V" onclick="toggleDay(this)">V</button>
-        <button type="button" class="day-btn" data-day="S" onclick="toggleDay(this)">S</button>
-        <button type="button" class="day-btn" data-day="D" onclick="toggleDay(this)">D</button>
-      </div>
-    </div>
-    <div class="field">
-      <label>Horario de apertura</label>
-      <div style="display:flex;align-items:center;gap:12px;">
-        <input id="e-hour-from" type="time" style="flex:1;" value="10:00">
-        <span style="color:var(--text-muted);font-size:14px;">hasta</span>
-        <input id="e-hour-to" type="time" style="flex:1;" value="20:00">
-      </div>
-    </div>
-    <div class="field"><label>Entrada</label>
-      <select id="e-entry-type" onchange="toggleEntryPrice()">
-        <option value="libre">Entrada libre</option>
-        <option value="pago">De pago</option>
-        <option value="donativo">Donativo</option>
-      </select>
-    </div>
-    <div class="field" id="e-price-field" style="display:none;">
-      <label>Precio</label>
-      <input id="e-price" placeholder="Ej: 12 € · Reducida 6 €">
-    </div>
-    <div class="field"><label>Reserva previa</label>
-      <select id="e-reserva">
-        <option value="no">No necesaria</option>
-        <option value="recomendada">Recomendada</option>
-        <option value="obligatoria">Obligatoria</option>
-      </select>
-    </div>
-    <div class="field"><label>Web / URL</label><input id="e-url" type="url" placeholder="https://…"></div>
-    <div class="field"><label>Notas</label><textarea id="e-notes" placeholder="Qué ver, qué no perderse…" rows="3"></textarea></div>
-    <div class="btn-row"><button class="btn" onclick="closeM('m-expo')">Cancelar</button><button class="btn btn-accent" onclick="saveExpo()">Guardar</button></div>
-    <div id="e-extra-actions" style="display:none;margin-top:10px;">
-      <button class="btn" id="e-visited-btn" style="width:100%;margin-bottom:8px;" onclick="toggleVisitedFromModal()"></button>
-      <a id="e-url-link" href="#" target="_blank" style="display:none;align-items:center;justify-content:center;gap:6px;text-align:center;padding:12px;border-radius:var(--radius-sm);background:var(--bg);color:var(--accent2);font-size:13px;font-weight:500;box-shadow:5px 5px 10px var(--sh-dark),-5px -5px 10px var(--sh-light);text-decoration:none;margin-bottom:8px;width:100%;box-sizing:border-box;"></a>
-      <button class="delete-btn" id="e-delete-btn" onclick="">Eliminar exposición</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="m-maestro">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div>
-    <div class="modal-title">Añadir maestro</div>
-    <div class="field"><label>Nombre completo</label><input id="ma-name" placeholder="Ej: Joaquín Sorolla"></div>
-    <div class="field"><label>Emoji representativo</label><input id="ma-emoji" placeholder="🎨" style="text-align:center;font-size:22px;"></div>
-    <div class="field"><label>Periodo</label><input id="ma-period" placeholder="Ej: 1863–1923"></div>
-    <div class="field"><label>País / Origen</label><input id="ma-country" placeholder="Ej: España"></div>
-    <div class="field"><label>Estilo / Movimiento</label><input id="ma-style" placeholder="Ej: Luminismo, Impresionismo…"></div>
-    <div class="field"><label>Fundamento principal</label>
-      <select id="ma-fund">
-        <option value="valor">Valor (luz y sombra)</option>
-        <option value="color">Color</option>
-        <option value="composicion">Composición</option>
-        <option value="perspectiva">Perspectiva</option>
-        <option value="bordes">Bordes</option>
-        <option value="pincelada">Pincelada</option>
-      </select>
-    </div>
-    <div class="field"><label>Lección principal</label><textarea id="ma-lesson" placeholder="¿Qué enseña este maestro? ¿Cuál es su aportación más valiosa?" rows="3"></textarea></div>
-    <div class="field"><label>Tips (uno por línea)</label><textarea id="ma-tips" placeholder="Tip 1&#10;Tip 2&#10;Tip 3" rows="4"></textarea></div>
-    <div class="btn-row">
-      <button class="btn" onclick="closeM('m-maestro')">Cancelar</button>
-      <button class="btn btn-accent" onclick="saveMaestro()">Guardar</button>
-    </div>
-    <div id="ma-extra-actions" style="display:none;margin-top:10px;">
-      <button class="delete-btn" id="ma-delete-btn">Eliminar maestro</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="m-tech">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div><div class="modal-title">Añadir técnica</div>
-    <div class="field"><label>Nombre</label><input id="t-name" placeholder="Ej: Veladura"></div>
-    <div class="field"><label>Categoría</label><select id="t-cat"><option>Pintura</option><option>Color</option><option>Otro</option></select></div>
-    <div class="field"><label>Descripción</label><textarea id="t-desc" placeholder="En qué consiste..."></textarea></div>
-    <div class="field"><label>Materiales</label><input id="t-mats" placeholder="Materiales necesarios"></div>
-    <div class="field"><label>Notas Personales</label><textarea id="t-notes" placeholder="Experimentos y resultados..."></textarea></div>
-    <div class="btn-row"><button class="btn" onclick="closeM('m-tech')">Cancelar</button><button class="btn btn-accent" onclick="saveTech()">Guardar</button></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="m-work">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div><div class="modal-title">Añadir obra</div>
-    <div class="field"><label>Título</label><input id="w-title" type="text" placeholder="Sin título, Serie I…"></div>
-    <div class="field"><label>Medio</label><input id="w-medium" type="text" placeholder="Óleo sobre lienzo, acuarela…"></div>
-    <div class="field"><label>Dimensiones</label><input id="w-dims" type="text" placeholder="50 × 70 cm"></div>
-    <div class="field"><label>Fundamento a trabajar</label>
-      <select id="w-fund"><option value="">— Sin objetivo específico —</option><option value="valor">Valor</option><option value="color">Color</option><option value="composicion">Composición</option><option value="perspectiva">Perspectiva</option><option value="bordes">Bordes</option><option value="pincelada">Pincelada</option></select>
-    </div>
-    <div class="field"><label>Intención creativa</label><textarea id="w-intention" placeholder="¿Qué quieres explorar o conseguir con esta obra?" style="min-height:60px;"></textarea></div>
-    <div class="field"><label>Estado</label>
-      <select id="w-status"><option value="boceto">Boceto / Idea</option><option value="proceso">En proceso</option><option value="terminado">Terminado</option><option value="pausa">En pausa</option></select>
-    </div>
-    <div class="field"><label>Fecha</label><input id="w-date" type="date"></div>
-    <div class="field"><label>Notas</label><textarea id="w-notes" placeholder="Proceso, referencias…" rows="3"></textarea></div>
-    <div class="btn-row">
-      <button class="btn" onclick="closeM('m-work')">Cancelar</button>
-      <button class="btn btn-accent" onclick="saveWork()">Guardar</button>
-    </div>
-  </div>
-</div>
-
-<!-- DETAIL -->
-<div class="detail-overlay" id="detail">
-  <div class="detail-header">
-    <button class="back-btn" onclick="closeDetail()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
-    <div id="detail-hdr-label" style="font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;"></div>
-  </div>
-  <div class="detail-body-wrap" id="detail-inner"></div>
-</div>
-
-<script>
-// ── STORAGE ──
-const S = {
-  get: k => { try { const d = localStorage.getItem('atl_' + k); return d ? JSON.parse(d) : []; } catch(e) { return []; } },
-  set: (k,v) => { try { localStorage.setItem('atl_' + k, JSON.stringify(v)); } catch(e) { customAlert('Error: Memoria local llena.'); } },
-  getObj: k => { try { const d = localStorage.getItem('atl_' + k); return d ? JSON.parse(d) : {}; } catch(e) { return {}; } },
-  setObj: (k,v) => { try { localStorage.setItem('atl_' + k, JSON.stringify(v)); } catch(e) {} }
-};
-const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2);
-const d = () => new Date().toISOString().split('T')[0];
-
-// ── ICON SYSTEM ──
-const ICO = {
-  valor:       `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 010 18" fill="currentColor" stroke="none"/></svg>`,
-  color:       `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/></svg>`,
-  composicion: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/></svg>`,
-  perspectiva: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polygon points="12 3 21 20 3 20"/><line x1="12" y1="8" x2="12" y2="20"/><line x1="6" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="12" y2="10"/></svg>`,
-  bordes:      `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><line x1="3" y1="9" x2="21" y2="9" stroke-width="2.5"/><line x1="3" y1="15" x2="21" y2="15" stroke-width="0.75" stroke-opacity="0.45"/></svg>`,
-  pincelada:   `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 20c3-6 6-10 10-10 2.5 0 4 2 6 2"/><path d="M4 20c0 1.5.5 2 2 2s2.5-1.5 2.5-3.5"/></svg>`,
-  edit:        `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
-  check:       `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>`,
-  refresh:     `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>`,
-  spark:       `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>`,
-  fire:        `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 22c5 0 8-3.5 8-8 0-3-1.5-5.5-4-7 .5 2-1 4-3 4-2 0-3.5-2-3-4C7.5 9 6 11.5 6 14c0 4.5 3 8 6 8z"/></svg>`,
-  palette:     `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1.5" fill="currentColor"/><circle cx="15" cy="10" r="1.5" fill="currentColor"/><circle cx="12" cy="15" r="1.5" fill="currentColor"/></svg>`,
-  link:        `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>`,
-  pin:         `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>`,
-  clock:       `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>`,
-  ticket:      `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 9a2 2 0 012-2h16a2 2 0 012 2v1a2 2 0 000 4v1a2 2 0 01-2 2H4a2 2 0 01-2-2v-1a2 2 0 000-4V9z"/><line x1="9" y1="7" x2="9" y2="17" stroke-dasharray="2 2"/></svg>`,
-  calendar:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
-  museum:      `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg>`,
-  note_ref:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>`,
-  wrench:      `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>`,
-  eye:         `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`,
-  star:        `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
-};
-function ico(name, color) {
-  const s = ICO[name]||''; return color ? s.replace('stroke="currentColor"','stroke="'+color+'"').replace(/fill="currentColor"/g,'fill="'+color+'"') : s;
-}
-
-// ── LEVELS ──
-const LEVELS = [
-  { sym:'I',  name:'Principiante', quote:'El primer paso es el más importante.', min:0, max:100 },
-  { sym:'II', name:'Aprendiz',     quote:'Los fundamentos son tu base para siempre.', min:100, max:300 },
-  { sym:'III',name:'Intermedio',   quote:'Tus ojos ya ven lo que otros no notan.', min:300, max:700 },
-  { sym:'IV', name:'Avanzado',     quote:'Tienes voz propia — sigue desarrollándola.', min:700, max:1500 },
-  { sym:'V',  name:'Maestro',      quote:'Enseñar es la mayor prueba de que sabes.', min:1500, max:99999 }
-];
-function getLevel(xp) {
-  return LEVELS.find((l,i) => xp >= l.min && (xp < l.max || i === LEVELS.length - 1)) || LEVELS[0];
-}
-function getLevelIndex(xp) {
-  return LEVELS.findIndex((l,i) => xp >= l.min && (xp < l.max || i === LEVELS.length - 1));
-}
-
-// ── XP ──
-function getXPData() {
-  const x = S.getObj('xp_data');
-  if (!x.total) x.total = 0;
-  if (!x.history) x.history = [];
-  return x;
-}
-function awardXP(amount, desc) {
-  const xd = getXPData();
-  const oldLevel = getLevelIndex(xd.total);
-  xd.total += amount;
-  xd.history.unshift({ xp: amount, desc, date: new Date().toISOString() });
-  if (xd.history.length > 50) xd.history = xd.history.slice(0, 50);
-  S.setObj('xp_data', xd);
-  showXPToast('+' + amount + ' XP · ' + desc);
-  const newLevel = getLevelIndex(xd.total);
-  if (newLevel > oldLevel) {
-    setTimeout(() => showXPToast('Nuevo nivel: ' + LEVELS[newLevel].name), 1400);
-  }
-}
-function showXPToast(msg) {
-  const t = document.getElementById('xp-toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2200);
-}
-
-// ── FUNDAMENTOS ──
-const FUNDS = {
-  valor:       { label:'Valor',       icon:'valor',       desc:'Luz y sombra' },
-  color:       { label:'Color',       icon:'color',       desc:'Mezcla y teoría' },
-  composicion: { label:'Composición', icon:'composicion', desc:'Diseño y equilibrio' },
-  perspectiva: { label:'Perspectiva', icon:'perspectiva', desc:'Espacio y proporción' },
-  bordes:      { label:'Bordes',      icon:'bordes',      desc:'Duros, suaves, perdidos' },
-  pincelada:   { label:'Pincelada',   icon:'pincelada',   desc:'Técnica y gesto' }
-};
-function getFundData() {
-  const fd = S.getObj('fund_data');
-  Object.keys(FUNDS).forEach(k => { if (!fd[k]) fd[k] = 0; });
-  return fd;
-}
-function addFundSession(fund) {
-  if (!fund) return;
-  const fd = getFundData();
-  fd[fund] = (fd[fund] || 0) + 1;
-  S.setObj('fund_data', fd);
-}
-function getWeakestFund() {
-  const fd = getFundData();
-  return Object.keys(fd).sort((a,b) => fd[a] - fd[b])[0];
-}
-
-// ── MAESTROS ──
-const MAESTROS = [
-  { id:'rembrandt', emoji:'🕯️', name:'Rembrandt van Rijn', period:'1606–1669', country:'Países Bajos', style:'Barroco', fund:'valor', lesson:'El drama surge de las sombras. Deja que la oscuridad sea el 80% de tu cuadro y la luz emerja como un regalo.', tips:['Trabaja sobre fondo oscuro','La luz surge, no se aplica','Simplifica lo que está en sombra'] },
-  { id:'vermeer', emoji:'🪟', name:'Johannes Vermeer', period:'1632–1675', country:'Países Bajos', style:'Barroco', fund:'color', lesson:'La luz de ventana lateral transforma lo cotidiano. Observa cómo el color cambia de temperatura de la sombra a la luz.', tips:['Luz de ventana lateral izquierda','Azul ultramar y amarillo ocre','Los reflejos son siempre más fríos'] },
-  { id:'sargent', emoji:'🎩', name:'John Singer Sargent', period:'1856–1925', country:'EE.UU.', style:'Impresionismo', fund:'pincelada', lesson:'Una pincelada directa, cargada y segura dice más que cien retoques. Mezcla en el lienzo, no en la paleta.', tips:['Pincelada alla prima, sin retoques','Mezcla de color directamente en lienzo','Decisión antes de cada toque'] },
-  { id:'sorolla', emoji:'☀️', name:'Joaquín Sorolla', period:'1863–1923', country:'España', style:'Luminismo', fund:'color', lesson:'La luz mediterránea blanquea y satura a la vez. El blanco nunca es solo blanco: tiene azul, violeta, amarillo.', tips:['Los blancos tienen temperatura','Las sombras son coloreadas, no grises','Pinta a plein air en horas de máxima luz'] },
-  { id:'velazquez', emoji:'👑', name:'Diego Velázquez', period:'1599–1660', country:'España', style:'Barroco', fund:'pincelada', lesson:'La economía es maestría. Con tres pinceladas aparece un encaje. La forma más alta del arte es la simplificación.', tips:['Menos es más','Detalla solo el punto focal','Sfumato en los bordes distantes'] },
-  { id:'monet', emoji:'🌸', name:'Claude Monet', period:'1840–1926', country:'Francia', style:'Impresionismo', fund:'color', lesson:'No pintes las cosas, pinta la luz sobre las cosas. El mismo jardín a las 7h y a las 12h son dos cuadros distintos.', tips:['Series del mismo motivo en distintas horas','Nunca uses negro puro','Complementarios en las sombras'] },
-  { id:'cezanne', emoji:'🍎', name:'Paul Cézanne', period:'1839–1906', country:'Francia', style:'Post-impresionismo', fund:'composicion', lesson:'Toda la naturaleza puede reducirse al cilindro, la esfera y el cono. La estructura subyacente es lo que da solidez.', tips:['Busca la geometría bajo la apariencia','Las capas de color construyen el volumen','Los planos de color crean perspectiva'] },
-  { id:'zorn', emoji:'⚡', name:'Anders Zorn', period:'1860–1920', country:'Suecia', style:'Realismo', fund:'valor', lesson:'La paleta Zorn (blanco, negro, ocre, rojo) lo contiene casi todo. La limitación es la madre de la maestría.', tips:['Paleta de 4 colores máximo','El valor importa más que el tono','Pinceladas largas y decididas'] },
-  { id:'degas', emoji:'💃', name:'Edgar Degas', period:'1834–1917', country:'Francia', style:'Impresionismo', fund:'composicion', lesson:'Corta, encuadra de forma inesperada. El sujeto a veces está fuera del cuadro. La asimetría crea tensión.', tips:['Encuadres atrevidos y asimétricos','El movimiento se congela en el gesto','Diagonal como línea de composición'] },
-  { id:'goya', emoji:'🌑', name:'Francisco Goya', period:'1746–1828', country:'España', style:'Romanticismo', fund:'valor', lesson:'La oscuridad tiene su propia luz. En sus pinturas negras, lo que no se ve es tan poderoso como lo que se ve.', tips:['No temas la oscuridad total','La expresión sobre la forma perfecta','El pincel como herramienta emocional'] },
-  { id:'bouguereau', emoji:'🏛️', name:'William-Adolphe Bouguereau', period:'1825–1905', country:'Francia', style:'Académico', fund:'bordes', lesson:'El dominio académico exige entender cada borde. Un borde duro en el lugar equivocado destruye el volumen.', tips:['Borde duro solo en el primer plano','Borde perdido para fundir con el fondo','El esfumado crea atmósfera'] },
-  { id:'hopper', emoji:'🏠', name:'Edward Hopper', period:'1882–1967', country:'EE.UU.', style:'Realismo americano', fund:'composicion', lesson:'La soledad tiene geometría. Las líneas horizontales y verticales fuertes crean la tensión de lo cotidiano.', tips:['Luz dura de ventana, no difusa','El silencio es el tema real','Simplifica la paleta a pocos tonos'] }
-];
-
-// ── RETO POOL ──
-const RETO_POOL = [
-  // VALOR
-  { fund:'valor', diff:'beginner', xp:15, title:'Estudio en escala de grises', desc:'Pinta un bodegón simple usando únicamente blanco, negro y grises. Olvida el color por completo y concéntrate solo en los valores.' },
-  { fund:'valor', diff:'beginner', xp:15, title:'Los 5 valores', desc:'Mezcla exactamente 5 valores de gris: blanco puro, gris claro, gris medio, gris oscuro y negro. Úsalos para pintar cualquier objeto.' },
-  { fund:'valor', diff:'intermediate', xp:20, title:'Clave alta y clave baja', desc:'Pinta la misma escena dos veces: una en clave alta (valores claros, luminosa) y otra en clave baja (valores oscuros, dramática).' },
-  { fund:'valor', diff:'advanced', xp:25, title:'Copia el valor de un Rembrandt', desc:'Elige una obra de Rembrandt. Cópiala en escala de grises, prestando máxima atención a cómo el 80% es oscuridad y la luz emerge con precisión.' },
-
-  // COLOR
-  { fund:'color', diff:'beginner', xp:15, title:'Paleta limitada de Zorn', desc:'Usa solo 4 colores: blanco de titanio, negro marfil, ocre amarillo y rojo cadmio. Descubrirás que casi todo es alcanzable.' },
-  { fund:'color', diff:'beginner', xp:15, title:'Rueda de mezclas', desc:'Mezcla cada color primario con cada uno de los otros colores de tu paleta. Documenta los resultados en una hoja de referencia.' },
-  { fund:'color', diff:'intermediate', xp:20, title:'Temperaturas del color', desc:'Pinta una escena exterior en dos momentos: mañana (luz cálida, sombras frías) y tarde (luz fría, sombras cálidas). Exagera las temperaturas.' },
-  { fund:'color', diff:'advanced', xp:25, title:'Colores rotos y grises', desc:'Pinta un retrato o figura usando solo colores "rotos" (mezclados con su complementario). Evita colores saturados directamente del tubo.' },
-
-  // COMPOSICIÓN
-  { fund:'composicion', diff:'beginner', xp:15, title:'5 thumbnails', desc:'Antes de pintar tu próxima obra, haz 5 thumbnails pequeños (5x5 cm) de la misma escena con composiciones diferentes. Elige el mejor.' },
-  { fund:'composicion', diff:'beginner', xp:15, title:'Regla de tercios', desc:'Pinta una composición donde el horizonte y el sujeto principal estén exactamente en las líneas de tercios. Documenta el resultado.' },
-  { fund:'composicion', diff:'intermediate', xp:20, title:'Un único punto focal', desc:'Crea una composición donde TODO conduzca la mirada hacia un único punto. Usa líneas, contraste de valor y bordes para dirigir la atención.' },
-  { fund:'composicion', diff:'advanced', xp:25, title:'Composición en forma de "S"', desc:'Diseña una composición donde el elemento principal o la línea compositiva forme una curva en S. Clásico del barroco y muy poderoso.' },
-
-  // PERSPECTIVA
-  { fund:'perspectiva', diff:'beginner', xp:15, title:'Calle en perspectiva', desc:'Dibuja o pinta una calle con un punto de fuga central bien marcado. Construye todos los elementos con líneas que converjan en ese punto.' },
-  { fund:'perspectiva', diff:'beginner', xp:15, title:'Objetos superpuestos', desc:'Crea una composición donde la profundidad se crea únicamente por superposición de objetos, sin perspectiva lineal. Observa cómo funciona.' },
-  { fund:'perspectiva', diff:'intermediate', xp:20, title:'Interior con dos puntos de fuga', desc:'Pinta el interior de una habitación con perspectiva de dos puntos de fuga. Construye la estructura a lápiz antes de aplicar color.' },
-  { fund:'perspectiva', diff:'advanced', xp:25, title:'Vista de pájaro', desc:'Pinta una escena desde arriba (vista de pájaro). Coloca el punto de vista muy por encima del horizonte y dibuja todo en perspectiva consistente.' },
-
-  // BORDES
-  { fund:'bordes', diff:'beginner', xp:15, title:'Duro vs suave', desc:'Pinta un objeto con iluminación lateral fuerte. Haz los bordes en luz duros y afilados, y los bordes en sombra completamente difuminados.' },
-  { fund:'bordes', diff:'beginner', xp:15, title:'El borde perdido', desc:'Pinta cualquier escena asegurándote de tener al menos 3 "bordes perdidos" (donde un elemento se funde completamente con el fondo o con otro elemento).' },
-  { fund:'bordes', diff:'intermediate', xp:20, title:'Retrato de bordes', desc:'Pinta un retrato prestando el 80% de la atención a los bordes. Solo los ojos y la nariz tienen bordes duros; el resto se pierde gradualmente.' },
-  { fund:'bordes', diff:'advanced', xp:25, title:'Copia a Bouguereau', desc:'Elige un fragmento de una obra académica de Bouguereau. Cópialo prestando máxima atención a la transición entre bordes duros y esfumados.' },
-
-  // PINCELADA
-  { fund:'pincelada', diff:'beginner', xp:15, title:'Boceto en 20 minutos', desc:'Pinta un bodegón en exactamente 20 minutos. No retouques nada. La pincelada debe ser directa y decidida. La frescura importa más que la perfección.' },
-  { fund:'pincelada', diff:'beginner', xp:15, title:'Estudio alla prima', desc:'Pinta un estudio de color en una sola sesión, húmedo sobre húmedo, sin dejar secar. Mezcla directamente en el lienzo.' },
-  { fund:'pincelada', diff:'intermediate', xp:20, title:'La pincelada de Sargent', desc:'Elige un fragmento de una obra de Sargent y analiza la dirección y longitud de sus pinceladas. Cópialo intentando imitar exactamente su gesto.' },
-  { fund:'pincelada', diff:'intermediate', xp:20, title:'Impasto', desc:'Pinta un pequeño estudio donde la textura de la pintura sea el protagonista. Aplica la pintura espesa, con espátula o pincel cargado.' },
-  { fund:'pincelada', diff:'advanced', xp:25, title:'Una pincelada, un valor', desc:'El reto: cada pincelada que pongas debe tener el valor exacto que necesita. No corrijas encima. Si te equivocas, límpialo y vuelve a poner una sola pincelada correcta.' }
-];
-
-// ── EXPORT / IMPORT ──
-async function exportData() {
-  const data = {
-    books:S.get('books'), notes:S.get('notes'), gallery:S.get('gallery'),
-    expos:S.get('expos'), works:S.get('works'), techs:S.get('techs'),
-    practice:S.get('practice'), xp_data:S.getObj('xp_data'),
-    fund_data:S.getObj('fund_data'), retos:S.get('retos'), user_maestros:S.get('user_maestros')
+    resetForm();
   };
-  const json = JSON.stringify(data, null, 2);
-  const filename = `atelier_backup_${d()}.json`;
 
-  // iOS Safari: Web Share API con File (iOS 15+)
-  if (navigator.canShare) {
-    try {
-      const file = new File([json], filename, { type: 'application/json' });
-      if (navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'Atelier backup' });
-        return;
-      }
-    } catch(e) { /* cancelado o no soportado, continúa */ }
-  }
-
-  // Desktop / Android: descarga directa con blob URL
-  try {
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename;
-    document.body.appendChild(a); a.click();
-    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 300);
-    return;
-  } catch(e) {}
-
-  // Fallback último recurso: data URI
-  const a = document.createElement('a');
-  a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(json);
-  a.download = filename;
-  document.body.appendChild(a); a.click();
-  setTimeout(() => document.body.removeChild(a), 300);
-}
-function importData(e) {
-  const file = e.target.files[0]; if(!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    try {
-      const data = JSON.parse(ev.target.result);
-      ['books','notes','gallery','expos','works','techs','practice','retos','user_maestros'].forEach(k => { if(data[k]) S.set(k, data[k]); });
-      ['xp_data','fund_data'].forEach(k => { if(data[k]) S.setObj(k, data[k]); });
-      customAlert('Datos importados correctamente.');
-      render(cur); renderHome();
-    } catch(err) { customAlert('Error al leer el archivo JSON.'); }
+  // --- NUEVA LÓGICA DE BORRADO (CON MODAL) ---
+  const handleEliminarClick = () => {
+    setItemToDelete({ type: selectedItem.type, id: selectedItem.data.id, isDetail: true });
   };
-  reader.readAsText(file);
-}
 
-// ── NAV & MODALS ──
-let cur = 'home';
-const modalMap = { books:'m-book', notes:'m-note', gallery:'m-gallery', expos:'m-expo', works:'m-work', techs:'m-tech', maestros:'m-maestro' };
-
-function go(name, btn, label) {
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('view-'+name).classList.add('active');
-  btn.classList.add('active');
-  document.getElementById('hdr-section').textContent = label;
-  cur = name;
-  const noFab = ['home','camino','retos'];
-  document.getElementById('fab').style.display = noFab.includes(name) ? 'none' : 'flex';
-  render(name);
-}
-
-function openModal() {
-  const mid = modalMap[cur]; if(!mid) return;
-  if(cur==='notes') fillBookSelect();
-  document.getElementById(mid).classList.add('open');
-}
-function closeM(id) {
-  const modal = document.getElementById(id); modal.classList.remove('open');
-  editingId = null;
-  setTimeout(() => {
-    modal.querySelectorAll('input,textarea,select').forEach(el => { if(el.tagName==='SELECT') el.selectedIndex=0; else el.value=''; });
-    selectedFund = null;
-    document.querySelectorAll('.fund-opt').forEach(b => b.classList.remove('selected'));
-    document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('on'));
-    const extra = document.getElementById('e-extra-actions');
-    if(extra) extra.style.display = 'none';
-    const mt = document.querySelector('#m-expo .modal-title');
-    if(mt) mt.textContent = 'Añadir expo';
-    const mamt = document.querySelector('#m-maestro .modal-title');
-    if(mamt) mamt.textContent = 'Añadir maestro';
-    const maExtra = document.getElementById('ma-extra-actions');
-    if(maExtra) maExtra.style.display = 'none';
-  }, 200);
-}
-document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if(e.target===m) closeM(m.id); }));
-
-// ── PRACTICE MODAL ──
-let selectedFund = null;
-function selectFund(btn) {
-  document.querySelectorAll('.fund-opt').forEach(b => b.classList.remove('selected'));
-  btn.classList.add('selected');
-  selectedFund = btn.dataset.fund;
-}
-function openPracticeModal() {
-  const streak = getStreak();
-  if(streak.doneToday) return; // button disabled, just in case
-  document.getElementById('m-practice').classList.add('open');
-}
-function savePractice() {
-  const today = d();
-  let dates = S.get('practice'); if(!Array.isArray(dates)) dates = [];
-  if(!dates.includes(today)) { dates.push(today); S.set('practice', dates); }
-  if(selectedFund) addFundSession(selectedFund);
-  const mins = document.getElementById('p-mins').value;
-  const note = document.getElementById('p-note').value.trim();
-  const desc = (selectedFund ? FUNDS[selectedFund].label : 'Práctica libre') + (mins ? ' · '+mins+'min' : '');
-  if(note) {
-    const notes = S.get('notes');
-    notes.unshift({ id:uid(), title:'Sesión: '+desc, content:note, bookId:'', tags:['sesión',selectedFund||'práctica'], tipo:'tecnica', fund:selectedFund||'', date:new Date().toISOString() });
-    S.set('notes', notes);
-  }
-  awardXP(10, desc);
-  closeM('m-practice');
-  renderHome();
-}
-
-// ── RACHA ──
-function getStreak() {
-  let dates = S.get('practice'); if(!Array.isArray(dates)) dates = [];
-  if(!dates.length) return {count:0, doneToday:false};
-  dates = [...new Set(dates)].sort().reverse();
-  const todayStr = d();
-  const yesterday = new Date(); yesterday.setDate(yesterday.getDate()-1);
-  const yesterdayStr = yesterday.toISOString().split('T')[0];
-  const doneToday = dates.includes(todayStr);
-  if(!doneToday && !dates.includes(yesterdayStr)) return {count:0, doneToday:false};
-  let streak = 0; let checkDate = new Date();
-  if(!doneToday) checkDate.setDate(checkDate.getDate()-1);
-  while(true) {
-    const cs = checkDate.toISOString().split('T')[0];
-    if(dates.includes(cs)) { streak++; checkDate.setDate(checkDate.getDate()-1); } else break;
-  }
-  return {count:streak, doneToday};
-}
-
-// ── RETOS ──
-function generateReto() {
-  const xd = getXPData();
-  const li = getLevelIndex(xd.total);
-  const diffMap = ['beginner','beginner','intermediate','intermediate','advanced'];
-  const targetDiff = diffMap[li] || 'beginner';
-  const weakFund = getWeakestFund();
-  const done = S.get('retos').map(r => r.poolTitle);
-  let pool = RETO_POOL.filter(r => (r.fund===weakFund || Math.random()>0.6) && (r.diff===targetDiff || li>=2));
-  if(!pool.length) pool = RETO_POOL;
-  const fresh = pool.filter(r => !done.includes(r.title));
-  const source = fresh.length ? fresh : pool;
-  const picked = source[Math.floor(Math.random()*source.length)];
-  const reto = { id:uid(), poolTitle:picked.title, title:picked.title, desc:picked.desc, fundamento:picked.fund, xp:picked.xp, diff:picked.diff, completed:false, createdDate:d() };
-  const retos = S.get('retos');
-  // deactivate previous active
-  retos.forEach(r => r.active = false);
-  reto.active = true;
-  retos.unshift(reto);
-  S.set('retos', retos);
-  renderRetos(); renderHome();
-}
-function completeReto(id) {
-  const retos = S.get('retos').map(r => r.id===id ? {...r, completed:true, completedDate:d()} : r);
-  S.set('retos', retos);
-  const reto = retos.find(r => r.id===id);
-  if(reto) awardXP(reto.xp, 'Reto: '+reto.title);
-  renderRetos(); renderHome();
-}
-
-// ── MAESTROS DE USUARIO ──
-function getAllMaestros() {
-  return [...MAESTROS, ...S.get('user_maestros')];
-}
-function saveMaestro() {
-  const name = document.getElementById('ma-name').value.trim(); if(!name) return;
-  const tips = document.getElementById('ma-tips').value.split('\n').map(t=>t.trim()).filter(Boolean);
-  const newData = {
-    name,
-    emoji: document.getElementById('ma-emoji').value||'🎨',
-    period: document.getElementById('ma-period').value.trim(),
-    country: document.getElementById('ma-country').value.trim(),
-    style: document.getElementById('ma-style').value.trim(),
-    fund: document.getElementById('ma-fund').value,
-    lesson: document.getElementById('ma-lesson').value.trim(),
-    tips,
-    custom: true
+  const handleEliminarReferenciaClick = (id) => {
+    setItemToDelete({ type: 'referencia', id: id, isDetail: false });
   };
-  if(editingId) {
-    S.set('user_maestros', S.get('user_maestros').map(m => m.id===editingId ? {...m,...newData} : m));
-    editingId = null;
-  } else {
-    const list = S.get('user_maestros');
-    list.unshift({ id:uid(), ...newData });
-    S.set('user_maestros', list);
-  }
-  closeM('m-maestro'); renderMaestros();
-}
-function editMaestro(id) {
-  const maestro = getAllMaestros().find(m=>m.id===id); if(!maestro) return;
-  editingId = id;
-  document.querySelector('#m-maestro .modal-title').textContent = maestro.name;
-  document.getElementById('ma-name').value = maestro.name||'';
-  document.getElementById('ma-emoji').value = maestro.emoji||'🎨';
-  document.getElementById('ma-period').value = maestro.period||'';
-  document.getElementById('ma-country').value = maestro.country||'';
-  document.getElementById('ma-style').value = maestro.style||'';
-  document.getElementById('ma-fund').value = maestro.fund||'valor';
-  document.getElementById('ma-lesson').value = maestro.lesson||'';
-  document.getElementById('ma-tips').value = (maestro.tips||[]).join('\n');
-  const extra = document.getElementById('ma-extra-actions');
-  if(maestro.custom) {
-    extra.style.display = 'block';
-    document.getElementById('ma-delete-btn').onclick = () => {
-      S.set('user_maestros', S.get('user_maestros').filter(m=>m.id!==id));
-      closeM('m-maestro'); closeDetail(); renderMaestros();
-    };
-  } else {
-    extra.style.display = 'none';
-  }
-  document.getElementById('m-maestro').classList.add('open');
-}
-function getMaestroProgress() { return S.getObj('maestros_prog'); }
-function toggleMaestroStudying(id) {
-  const prog = getMaestroProgress();
-  if(!prog[id]) prog[id] = {studying:false, studies:0};
-  prog[id].studying = !prog[id].studying;
-  S.setObj('maestros_prog', prog);
-  renderMaestros();
-}
-function startMaestroStudy(id) {
-  const maestro = getAllMaestros().find(m => m.id===id);
-  if(!maestro) return;
-  const prog = getMaestroProgress();
-  if(!prog[id]) prog[id] = {studying:true, studies:0};
-  prog[id].studying = true;
-  prog[id].studies = (prog[id].studies||0) + 1;
-  S.setObj('maestros_prog', prog);
-  closeDetail();
-  go('works', document.getElementById('nav-works'), 'Mis obras');
-  document.getElementById('m-work').classList.add('open');
-  document.getElementById('w-title').value = 'Estudio de '+maestro.name;
-  document.getElementById('w-medium').value = 'Copia / master study';
-  document.getElementById('w-status').value = 'boceto';
-  document.getElementById('w-fund').value = maestro.fund;
-  document.getElementById('w-intention').value = 'Maestro estudiado: '+maestro.name+'\nLección principal: '+maestro.lesson;
-}
 
-// ── DAY TOGGLES ──
-function toggleDay(btn) { btn.classList.toggle('on'); }
-function getSelectedDays() {
-  return [...document.querySelectorAll('.day-btn.on')].map(b => b.dataset.day);
-}
-function setSelectedDays(days) {
-  document.querySelectorAll('.day-btn').forEach(b => {
-    b.classList.toggle('on', (days||[]).includes(b.dataset.day));
-  });
-}
-function formatSchedule(days, from, to) {
-  if(!days||!days.length) return '';
-  const allDays = ['L','M','X','J','V','S','D'];
-  // Build consecutive ranges
-  const indices = days.map(d => allDays.indexOf(d)).sort((a,b)=>a-b);
-  const names = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
-  let ranges = [], i = 0;
-  while(i < indices.length) {
-    let j = i;
-    while(j+1 < indices.length && indices[j+1]===indices[j]+1) j++;
-    ranges.push(j>i ? names[indices[i]]+'–'+names[indices[j]] : names[indices[i]]);
-    i = j+1;
-  }
-  const timeStr = from && to ? ` · ${from}–${to}` : '';
-  return ranges.join(', ') + timeStr;
-}
-let editingId = null;
-
-function editItem(type, id) {
-  editingId = id;
-  closeDetail();
-  if(type==='book') {
-    const item = S.get('books').find(b=>b.id===id); if(!item) return;
-    document.getElementById('b-title').value = item.title||'';
-    document.getElementById('b-author').value = item.author||'';
-    document.getElementById('b-year').value = item.year||'';
-    document.getElementById('b-cat').value = item.cat||'Pintura';
-    document.getElementById('b-emoji').value = item.emoji||'📖';
-    document.getElementById('b-rating').value = item.rating||'';
-    document.getElementById('m-book').classList.add('open');
-  }
-  else if(type==='note') {
-    const item = S.get('notes').find(n=>n.id===id); if(!item) return;
-    fillBookSelect();
-    document.getElementById('n-title').value = item.title||'';
-    document.getElementById('n-tipo').value = item.tipo||'reflexion';
-    document.getElementById('n-fund').value = item.fund||'';
-    document.getElementById('n-book').value = item.bookId||'';
-    document.getElementById('n-content').value = item.content||'';
-    document.getElementById('n-tags').value = (item.tags||[]).join(', ');
-    document.getElementById('m-note').classList.add('open');
-  }
-  else if(type==='gallery') {
-    const item = S.get('gallery').find(g=>g.id===id); if(!item) return;
-    document.getElementById('g-title').value = item.title||'';
-    document.getElementById('g-artist').value = item.artist||'';
-    document.getElementById('g-url').value = item.url||'';
-    document.getElementById('g-emoji').value = item.emoji||'';
-    document.getElementById('g-notes').value = item.notes||'';
-    document.getElementById('m-gallery').classList.add('open');
-  }
-  else if(type==='expo') {
-    const item = S.get('expos').find(e=>e.id===id); if(!item) return;
-    document.querySelector('#m-expo .modal-title').textContent = item.title;
-    document.getElementById('e-title').value = item.title||'';
-    document.getElementById('e-tipo').value = item.tipo||'museo';
-    document.getElementById('e-venue').value = item.venue||'';
-    document.getElementById('e-loc').value = item.location||'';
-    document.getElementById('e-from').value = item.from||'';
-    document.getElementById('e-to').value = item.to||'';
-    setSelectedDays(item.hourDays||[]);
-    document.getElementById('e-hour-from').value = item.hourFrom||'10:00';
-    document.getElementById('e-hour-to').value = item.hourTo||'20:00';
-    document.getElementById('e-entry-type').value = item.entryType||'libre';
-    toggleEntryPrice();
-    document.getElementById('e-price').value = item.price||'';
-    document.getElementById('e-reserva').value = item.reserva||'no';
-    document.getElementById('e-url').value = item.url||'';
-    document.getElementById('e-notes').value = item.notes||'';
-    // Extra actions
-    const extra = document.getElementById('e-extra-actions');
-    extra.style.display = 'block';
-    const vBtn = document.getElementById('e-visited-btn');
-    vBtn.innerHTML = (item.visited ? ico('check')+' Visitada — Desmarcar' : 'Marcar como visitada');
-    vBtn.onclick = () => toggleVisitedFromModal(id);
-    const urlLink = document.getElementById('e-url-link');
-    if(item.url) { urlLink.href = item.url; urlLink.style.display = 'flex'; urlLink.innerHTML = ico('link') + ' Ver web'; } else { urlLink.style.display = 'none'; }
-    const delBtn = document.getElementById('e-delete-btn');
-    delBtn.onclick = () => { closeM('m-expo'); del('expos', id); };
-    document.getElementById('m-expo').classList.add('open');
-  }
-  else if(type==='tech') {
-    const item = S.get('techs').find(t=>t.id===id); if(!item) return;
-    document.getElementById('t-name').value = item.name||'';
-    document.getElementById('t-cat').value = item.cat||'Pintura';
-    document.getElementById('t-desc').value = item.desc||'';
-    document.getElementById('t-mats').value = item.mats||'';
-    document.getElementById('t-notes').value = item.notes||'';
-    document.getElementById('m-tech').classList.add('open');
-  }
-  else if(type==='work') {
-    const item = S.get('works').find(w=>w.id===id); if(!item) return;
-    document.getElementById('w-title').value = item.title||'';
-    document.getElementById('w-medium').value = item.medium||'';
-    document.getElementById('w-dims').value = item.dims||'';
-    document.getElementById('w-fund').value = item.fund||'';
-    document.getElementById('w-intention').value = item.intention||'';
-    document.getElementById('w-status').value = item.status||'boceto';
-    document.getElementById('w-date').value = item.date||'';
-    document.getElementById('w-notes').value = item.notes||'';
-    document.getElementById('m-work').classList.add('open');
-  }
-}
-
-// ── SAVES ──
-function saveBook() {
-  const title = document.getElementById('b-title').value.trim(); if(!title) return;
-  const newData = { title, author:document.getElementById('b-author').value.trim(), year:document.getElementById('b-year').value, cat:document.getElementById('b-cat').value, emoji:document.getElementById('b-emoji').value||'📖', rating:parseInt(document.getElementById('b-rating').value)||0 };
-  if(editingId) {
-    S.set('books', S.get('books').map(b => b.id===editingId ? {...b, ...newData} : b));
-    const id = editingId; editingId = null; closeM('m-book'); render('books'); renderHome(); showDetail('book', id);
-  } else {
-    const books = S.get('books');
-    books.unshift({ id:uid(), ...newData, date:new Date().toISOString() });
-    S.set('books',books); closeM('m-book'); render('books'); renderHome();
-    awardXP(5, 'Libro: '+title);
-  }
-}
-function saveNote() {
-  const title = document.getElementById('n-title').value.trim();
-  const content = document.getElementById('n-content').value.trim();
-  if(!title && !content) return;
-  const tags = document.getElementById('n-tags').value.split(',').map(t=>t.trim()).filter(Boolean);
-  const newData = { title:title||'Sin título', content, bookId:document.getElementById('n-book').value, tags, tipo:document.getElementById('n-tipo').value, fund:document.getElementById('n-fund').value };
-  if(editingId) {
-    S.set('notes', S.get('notes').map(n => n.id===editingId ? {...n, ...newData} : n));
-    const id = editingId; editingId = null; closeM('m-note'); render('notes'); renderHome(); showDetail('note', id);
-  } else {
-    const notes = S.get('notes');
-    notes.unshift({ id:uid(), ...newData, date:new Date().toISOString() });
-    S.set('notes',notes); closeM('m-note'); render('notes'); renderHome();
-    awardXP(5, 'Nota: '+(title||'Sin título'));
-  }
-}
-function saveGallery() {
-  const title = document.getElementById('g-title').value.trim(); if(!title) return;
-  const newData = { title, artist:document.getElementById('g-artist').value.trim(), url:document.getElementById('g-url').value.trim(), emoji:document.getElementById('g-emoji').value||'🖼️', notes:document.getElementById('g-notes').value.trim() };
-  if(editingId) {
-    S.set('gallery', S.get('gallery').map(g => g.id===editingId ? {...g, ...newData} : g));
-    const id = editingId; editingId = null; closeM('m-gallery'); render('gallery'); renderHome(); showDetail('gallery', id);
-  } else {
-    const gallery = S.get('gallery');
-    gallery.unshift({ id:uid(), ...newData, date:new Date().toISOString() });
-    S.set('gallery',gallery); closeM('m-gallery'); render('gallery'); renderHome();
-  }
-}
-function toggleEntryPrice() {
-  const t = document.getElementById('e-entry-type').value;
-  document.getElementById('e-price-field').style.display = t==='pago' ? 'block' : 'none';
-}
-function saveExpo() {
-  const title = document.getElementById('e-title').value.trim(); if(!title) return;
-  const entryType = document.getElementById('e-entry-type').value;
-  const hourDays = getSelectedDays();
-  const hourFrom = document.getElementById('e-hour-from').value;
-  const hourTo = document.getElementById('e-hour-to').value;
-  const newData = {
-    title, tipo:document.getElementById('e-tipo').value,
-    venue:document.getElementById('e-venue').value.trim(),
-    location:document.getElementById('e-loc').value.trim(),
-    from:document.getElementById('e-from').value,
-    to:document.getElementById('e-to').value,
-    hourDays, hourFrom, hourTo,
-    hours: formatSchedule(hourDays, hourFrom, hourTo),
-    entryType, price:entryType==='pago'?document.getElementById('e-price').value.trim():'',
-    reserva:document.getElementById('e-reserva').value,
-    url:document.getElementById('e-url').value.trim(),
-    notes:document.getElementById('e-notes').value.trim()
+  const confirmarEliminar = () => {
+    if (itemToDelete.type === 'nota') setNotas(notas.filter(n => n.id !== itemToDelete.id));
+    if (itemToDelete.type === 'historia') setHistoria(historia.filter(h => h.id !== itemToDelete.id));
+    if (itemToDelete.type === 'libro') setLibros(libros.filter(l => l.id !== itemToDelete.id));
+    if (itemToDelete.type === 'referencia') setReferencias(referencias.filter(r => r.id !== itemToDelete.id));
+    
+    if (itemToDelete.isDetail) setSelectedItem(null);
+    setItemToDelete(null);
   };
-  if(editingId) {
-    S.set('expos', S.get('expos').map(e => e.id===editingId ? {...e, ...newData} : e));
-    editingId = null; closeM('m-expo'); render('expos'); renderHome();
-  } else {
-    const expos = S.get('expos');
-    expos.unshift({ id:uid(), ...newData, visited:false, date:new Date().toISOString() });
-    S.set('expos',expos); closeM('m-expo'); render('expos'); renderHome();
-  }
-}
-function saveTech() {
-  const name = document.getElementById('t-name').value.trim(); if(!name) return;
-  const newData = { name, cat:document.getElementById('t-cat').value, desc:document.getElementById('t-desc').value.trim(), mats:document.getElementById('t-mats').value.trim(), notes:document.getElementById('t-notes').value.trim() };
-  if(editingId) {
-    S.set('techs', S.get('techs').map(t => t.id===editingId ? {...t, ...newData} : t));
-    const id = editingId; editingId = null; closeM('m-tech'); render('techs'); renderHome(); showDetail('tech', id);
-  } else {
-    const techs = S.get('techs');
-    techs.unshift({ id:uid(), ...newData, date:new Date().toISOString() });
-    S.set('techs',techs); closeM('m-tech'); render('techs'); renderHome();
-    awardXP(5, 'Técnica: '+name);
-  }
-}
-function saveWork() {
-  const title = document.getElementById('w-title').value.trim(); if(!title) return;
-  const newData = { title, medium:document.getElementById('w-medium').value.trim(), dims:document.getElementById('w-dims').value.trim(), status:document.getElementById('w-status').value, fund:document.getElementById('w-fund').value, intention:document.getElementById('w-intention').value.trim(), date:document.getElementById('w-date').value||d(), notes:document.getElementById('w-notes').value.trim() };
-  if(editingId) {
-    S.set('works', S.get('works').map(w => w.id===editingId ? {...w, ...newData} : w));
-    const id = editingId; editingId = null; closeM('m-work'); render('works'); renderHome(); showDetail('work', id);
-  } else {
-    const works = S.get('works');
-    works.unshift({ id:uid(), ...newData });
-    S.set('works',works); closeM('m-work'); render('works'); renderHome();
-  }
-}
-function finishWork(id) {
-  const lessons = prompt('¡Enhorabuena por terminar tu obra!\n\nEscribe las lecciones que te llevas o qué harías diferente la próxima vez:');
-  if(lessons !== null) {
-    const works = S.get('works').map(w => w.id===id ? {...w, status:'terminado', lessons:lessons.trim()} : w);
-    S.set('works',works); showDetail('work',id); renderWorks(); renderHome();
-    awardXP(30, 'Obra terminada');
-  }
-}
 
-// ── CUSTOM ALERT ──
-function customAlert(msg) { alert(msg); }
-
-// ── RENDER ROUTER ──
-function render(n) {
-  const r = { home:renderHome, books:renderBooks, notes:renderNotes, gallery:renderGallery, expos:renderExpos, works:renderWorks, techs:renderTechs, camino:renderCamino, retos:renderRetos, maestros:renderMaestros };
-  if(r[n]) r[n]();
-}
-
-// ── RENDER HOME ──
-function renderHome() {
-  const h = new Date().getHours();
-  document.getElementById('greeting').textContent = (h<13?'Buenos días':h<21?'Buenas tardes':'Buenas noches')+', artista.';
-  document.getElementById('home-date').textContent = new Date().toLocaleDateString('es-ES',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-
-  const streak = getStreak();
-  const btn = document.getElementById('btn-practice');
-  document.getElementById('streak-text').innerHTML = ico('fire') + ' ' + streak.count + ' día' + (streak.count!==1?'s':'') + ' seguido' + (streak.count!==1?'s':'');
-  if(streak.doneToday) {
-    btn.innerHTML = ico('check') + ' Practicado hoy'; btn.style.background='var(--bg)'; btn.style.color='var(--accent)'; btn.style.boxShadow='inset 3px 3px 6px var(--sh-dark),inset -3px -3px 6px var(--sh-light)'; btn.disabled=true;
-  } else {
-    btn.innerHTML = ico('edit') + ' Practicar hoy'; btn.style.background=''; btn.style.color=''; btn.style.boxShadow=''; btn.disabled=false;
-  }
-
-  // Level mini card
-  const xd = getXPData();
-  const lv = getLevel(xd.total);
-  const lvNext = LEVELS[getLevelIndex(xd.total)+1];
-  const pct = lvNext ? Math.round(((xd.total - lv.min)/(lv.max - lv.min))*100) : 100;
-  document.getElementById('home-level-mini').innerHTML = `
-    <div style="background:var(--bg);border-radius:var(--radius-sm);padding:14px 16px;display:flex;align-items:center;gap:14px;box-shadow:6px 6px 13px var(--sh-dark),-6px -6px 13px var(--sh-light);cursor:pointer;" onclick="go('camino',document.getElementById('nav-camino'),'Mi Camino');renderCamino()">
-      <div style="width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--bg);box-shadow:4px 4px 8px var(--sh-dark),-4px -4px 8px var(--sh-light);font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:500;color:var(--accent);flex-shrink:0;">${lv.sym}</div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:11px;font-weight:500;color:var(--text);margin-bottom:5px;">${lv.name} · ${xd.total} XP</div>
-        <div class="xp-bar-wrap" style="height:7px;margin-bottom:0;"><div class="xp-bar-fill" style="width:${pct}%;"></div></div>
-      </div>
-      <div style="font-size:11px;color:var(--text-muted);flex-shrink:0;">${pct}%</div>
-    </div>`;
-
-  const stats = [ {n:S.get('books').length,l:'Libros'},{n:S.get('notes').length,l:'Notas'},{n:S.get('gallery').length,l:'Refs'},{n:S.get('expos').length,l:'Expos'},{n:S.get('works').length,l:'Obras'},{n:S.get('techs').length,l:'Técnicas'} ];
-  document.getElementById('stats-grid').innerHTML = stats.map((s,i)=>`<div class="stat-card" style="animation-delay:${i*.05}s"><div class="stat-num">${s.n}</div><div class="stat-label">${s.l}</div></div>`).join('');
-
-  const notes = S.get('notes');
-  const qEl = document.getElementById('home-quote');
-  if(notes.length) { const n=notes[0]; const preview=n.content.length>130?n.content.slice(0,130)+'…':n.content; qEl.innerHTML=`<div class="quote-card" onclick="showDetail('note','${n.id}')"><div class="quote-text">${preview||n.title}</div><div class="quote-source">${n.title} · ${fmt(n.date)}</div></div>`; }
-  else qEl.innerHTML=`<div style="font-family:'Cormorant Garamond',serif;font-size:16px;font-style:italic;color:var(--text-muted);padding:8px 0;">Aún no hay reflexiones. Añade tu primera nota.</div>`;
-
-  const retos = S.get('retos');
-  const activeReto = retos.find(r => r.active && !r.completed);
-  const retoEl = document.getElementById('home-reto');
-  if(activeReto) {
-    retoEl.innerHTML=`<div class="reto-active-card" onclick="go('retos',document.getElementById('nav-retos'),'Retos');renderRetos()"><div class="reto-fund-tag">${ico(FUNDS[activeReto.fundamento]?.icon||'')} ${FUNDS[activeReto.fundamento]?.label||activeReto.fundamento}</div><div class="reto-title">${activeReto.title}</div><div class="reto-desc">${activeReto.desc}</div><button class="btn btn-accent" style="width:100%;font-size:13px;display:flex;align-items:center;justify-content:center;gap:6px;" onclick="event.stopPropagation();completeReto('${activeReto.id}')">${ico('check')} Completado · +${activeReto.xp} XP</button></div>`;
-  } else {
-    retoEl.innerHTML=`<div style="background:var(--bg);border-radius:var(--radius-sm);padding:14px 16px;box-shadow:5px 5px 10px var(--sh-dark),-5px -5px 10px var(--sh-light);display:flex;justify-content:space-between;align-items:center;"><span style="font-family:'Cormorant Garamond',serif;font-size:15px;font-style:italic;color:var(--text-muted);">Sin reto activo</span><button class="btn btn-teal" style="padding:8px 14px;font-size:12px;display:flex;align-items:center;gap:6px;" onclick="generateReto()">${ico('spark')} Generar reto</button></div>`;
-  }
-
-  const expos = S.get('expos').filter(e=>!e.visited).slice(0,2);
-  document.getElementById('home-expos').innerHTML = expos.length ? expos.map(e=>`<div class="card" style="padding:14px;" onclick="editItem('expo','${e.id}')"><div style="font-size:11px;color:var(--accent);">${e.from?fmt(e.from):''}${e.to?' → '+fmt(e.to):''}</div><div style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:500;">${e.title}</div><div style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);margin-top:3px;">${ico('pin')} ${e.venue||e.location||''}</div></div>`).join('') : `<div style="font-family:'Cormorant Garamond',serif;font-size:15px;font-style:italic;color:var(--text-muted);">Sin exposiciones pendientes.</div>`;
-
-  const works = S.get('works').filter(w=>w.status==='proceso').slice(0,2);
-  document.getElementById('home-works').innerHTML = works.length ? works.map(w=>`<div class="card" style="padding:14px;" onclick="showDetail('work','${w.id}')"><span class="status-badge s-proceso">En proceso</span><div style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:500;">${w.title}</div><div style="font-size:12px;color:var(--text-muted);">${w.medium||''}${w.dims?' · '+w.dims:''}</div></div>`).join('') : `<div style="font-family:'Cormorant Garamond',serif;font-size:15px;font-style:italic;color:var(--text-muted);">Sin obras en proceso.</div>`;
-}
-
-// ── RENDER CAMINO ──
-function renderCamino() {
-  const xd = getXPData();
-  const lv = getLevel(xd.total);
-  const li = getLevelIndex(xd.total);
-  const lvNext = LEVELS[li+1];
-  const pct = lvNext ? Math.min(100, Math.round(((xd.total - lv.min)/(lv.max - lv.min))*100)) : 100;
-  const fd = getFundData();
-  const totalSessions = Object.values(fd).reduce((a,b)=>a+b,0);
-
-  let html = `
-    <div class="level-hero">
-      <div style="width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--bg);box-shadow:6px 6px 13px var(--sh-dark),-6px -6px 13px var(--sh-light);font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:400;color:var(--accent);margin-bottom:10px;">${lv.sym}</div>
-      <div class="level-name">${lv.name}</div>
-      <div class="level-quote">${lv.quote}</div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <span style="font-size:11px;color:var(--text-muted);">Nivel ${li+1} de ${LEVELS.length}</span>
-        <span style="font-size:13px;font-weight:500;color:var(--accent);">${xd.total} XP</span>
-      </div>
-      <div class="xp-bar-wrap"><div class="xp-bar-fill" style="width:${pct}%;"></div></div>
-      <div class="xp-label">
-        <span>${lv.min} XP</span>
-        <span>${lvNext ? lvNext.min+' XP para '+lvNext.name.slice(2) : '¡Nivel máximo alcanzado!'}</span>
-      </div>
-    </div>
-
-    <div class="section-label">Los 6 Fundamentos</div>
-    <div class="fund-grid">
-  `;
-  Object.entries(FUNDS).forEach(([k,f]) => {
-    const sessions = fd[k]||0;
-    const maxS = 20;
-    const fpct = Math.min(100, Math.round((sessions/maxS)*100));
-    html += `<div class="fund-card">
-      <div class="fund-icon" style="display:flex;align-items:center;color:var(--accent2);">${ico(f.icon)}</div>
-      <div class="fund-name">${f.label}</div>
-      <div class="fund-sessions">${sessions}</div>
-      <div class="fund-sub">${sessions===0?'Sin empezar':sessions<5?'Iniciado':sessions<10?'Desarrollando':sessions<15?'Sólido':'Dominado'} · ${f.desc}</div>
-      <div class="fund-bar-wrap"><div class="fund-bar-fill" style="width:${fpct}%;"></div></div>
-    </div>`;
-  });
-  html += `</div>
-    <div style="background:var(--bg);border-radius:var(--radius-sm);padding:13px 16px;margin-bottom:18px;box-shadow:5px 5px 10px var(--sh-dark),-5px -5px 10px var(--sh-light);display:flex;justify-content:space-around;text-align:center;">
-      <div><div class="stat-num">${totalSessions}</div><div class="stat-label">Sesiones</div></div>
-      <div><div class="stat-num">${S.get('works').filter(w=>w.status==='terminado').length}</div><div class="stat-label">Obras</div></div>
-      <div><div class="stat-num">${S.get('retos').filter(r=>r.completed).length}</div><div class="stat-label">Retos</div></div>
-    </div>
-  `;
-
-  if(xd.history.length) {
-    html += `<div class="section-label">Historial XP reciente</div><div style="background:var(--bg);border-radius:var(--radius-sm);padding:4px 16px;box-shadow:6px 6px 13px var(--sh-dark),-6px -6px 13px var(--sh-light);margin-bottom:14px;">`;
-    xd.history.slice(0,10).forEach(h => {
-      html += `<div class="xp-history-item"><div><div class="xp-history-desc">${h.desc}</div><div class="xp-history-date">${fmt(h.date)}</div></div><div class="xp-amount-pos">+${h.xp}</div></div>`;
-    });
-    html += '</div>';
-  }
-
-  document.getElementById('camino-content').innerHTML = html;
-}
-
-// ── RENDER RETOS ──
-function renderRetos() {
-  const retos = S.get('retos');
-  document.getElementById('cnt-retos').textContent = retos.filter(r=>r.completed).length + ' completados';
-  const active = retos.find(r => r.active && !r.completed);
-  let html = '';
-
-  if(active) {
-    html += `<div class="reto-active-card">
-      <div class="reto-fund-tag" style="display:flex;align-items:center;gap:5px;">${ico(FUNDS[active.fundamento]?.icon||'')} ${FUNDS[active.fundamento]?.label||active.fundamento} · Reto activo</div>
-      <div class="reto-title">${active.title}</div>
-      <div class="reto-desc">${active.desc}</div>
-      <div class="reto-footer"><span class="reto-xp-badge">+${active.xp} XP al completar</span><span class="reto-diff">${active.diff}</span></div>
-      <div style="margin-top:14px;display:flex;gap:10px;">
-        <button class="btn btn-accent" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;" onclick="completeReto('${active.id}')">${ico('check')} Completado</button>
-        <button class="btn" style="padding:12px 14px;" onclick="generateReto()">${ico('refresh')}</button>
-      </div>
-    </div>`;
-  } else {
-    html += `<div style="text-align:center;padding:24px 0 14px;">
-      <button class="btn btn-accent" style="width:100%;font-size:15px;padding:16px;display:flex;align-items:center;justify-content:center;gap:8px;" onclick="generateReto()">${ico('spark')} Generar nuevo reto</button>
-      <div style="font-size:12px;color:var(--text-muted);margin-top:10px;">El reto se adapta a tu nivel y fundamento más débil</div>
-    </div>`;
-  }
-
-  const done = retos.filter(r=>r.completed);
-  if(done.length) {
-    html += `<div class="section-label" style="margin-top:16px;">Completados (${done.length})</div>`;
-    done.forEach((r,i) => {
-      html += `<div class="reto-card done" style="animation-delay:${i*.05}s;">
-        <div class="reto-fund-tag" style="display:flex;align-items:center;gap:5px;">${ico(FUNDS[r.fundamento]?.icon||'')} ${FUNDS[r.fundamento]?.label||r.fundamento}</div>
-        <div class="reto-title" style="display:flex;align-items:center;gap:6px;">${ico('check')} ${r.title}</div>
-        <div class="reto-footer"><span class="reto-xp-badge">+${r.xp} XP</span><span class="reto-diff">${r.completedDate?fmt(r.completedDate):''}</span></div>
-      </div>`;
-    });
-  } else if(!active) {
-    html += empty('·','Completa tu primer reto para empezar');
-  }
-
-  document.getElementById('retos-content').innerHTML = html;
-}
-
-// ── RENDER MAESTROS ──
-function renderMaestros() {
-  const prog = getMaestroProgress();
-  const userMaestros = S.get('user_maestros');
-  let html = `<div style="font-size:13px;color:var(--text-muted);margin-bottom:18px;font-style:italic;">Estudia a los grandes maestros, copia sus obras, extrae sus lecciones. Es el camino más rápido hacia la maestría.</div>`;
-
-  if(userMaestros.length) {
-    html += `<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);margin-bottom:10px;">Mis maestros personales</div>`;
-    userMaestros.forEach((m,i) => {
-      const p = prog[m.id]||{};
-      html += maestroCardHTML(m, p, i);
-    });
-    html += `<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin:18px 0 10px;">Maestros de referencia</div>`;
-  }
-
-  MAESTROS.forEach((m,i) => {
-    const p = prog[m.id]||{};
-    html += maestroCardHTML(m, p, i);
-  });
-
-  document.getElementById('maestros-content').innerHTML = html;
-}
-function maestroCardHTML(m, p, i) {
-  return `<div class="maestro-card" style="animation-delay:${i*.04}s;" onclick="showDetail('maestro','${m.id}')">
-    <div class="maestro-top">
-      <div class="maestro-emoji-box">${m.emoji}</div>
-      <div>
-        <div class="maestro-name">${m.name}</div>
-        <div class="maestro-period">${m.period||''}${m.country?' · '+m.country:''}</div>
-        <div class="maestro-style">${m.style||''}</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
-          ${p.studying ? `<span class="studying-badge">Estudiando · ${p.studies||0} estudio${(p.studies||0)!==1?'s':''}</span>` : ''}
-          ${m.custom ? `<span style="font-size:10px;padding:2px 8px;border-radius:12px;background:#fef3e2;color:#a06020;">Personalizado</span>` : ''}
-        </div>
-      </div>
-    </div>
-    ${m.lesson?`<div class="maestro-lesson">"${m.lesson}"</div>`:''}
-    <div class="maestro-fund" style="margin-top:8px;display:flex;align-items:center;gap:5px;">${ico(FUNDS[m.fund]?.icon||'')} Fundamento: ${FUNDS[m.fund]?.label||m.fund}</div>
-  </div>`;
-}
-
-// ── RENDER EXISTING LISTS ──
-function renderBooks() { const books=S.get('books'); document.getElementById('cnt-books').textContent=books.length; document.getElementById('books-list').innerHTML=books.length?books.map((b,i)=>`<div class="card" style="animation-delay:${i*.05}s" onclick="showDetail('book','${b.id}')"><div style="display:flex;gap:14px;"><div style="width:50px;height:68px;border-radius:9px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:5px 5px 10px var(--sh-dark),-5px -5px 10px var(--sh-light);flex-shrink:0;">${b.emoji||'📖'}</div><div><div style="font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:500;">${b.title}</div><div style="font-size:12px;color:var(--text-muted);">${b.author||'Desconocido'}</div><div style="color:var(--accent);font-size:12px;">${'★'.repeat(b.rating||0)}${'☆'.repeat(5-(b.rating||0))}</div></div></div></div>`).join(''):empty('·','Tu biblioteca está vacía'); }
-
-function renderNotes() {
-  const notes=S.get('notes'); document.getElementById('cnt-notes').textContent=notes.length;
-  const tipoIco = {
-    reflexion: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>`,
-    tecnica:   `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>`,
-    inspiracion:`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>`,
-    critica:   `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
+  const handleSaveImageEdit = () => {
+    if (tempImageUrl.trim() !== '' && selectedItem && selectedItem.type === 'nota') {
+      const updatedNotas = notas.map(nota => 
+        nota.id === selectedItem.data.id ? { ...nota, imagen: tempImageUrl } : nota
+      );
+      setNotas(updatedNotas);
+      setSelectedItem({ ...selectedItem, data: { ...selectedItem.data, imagen: tempImageUrl } });
+    }
+    setIsEditingImage(false);
   };
-  document.getElementById('notes-list').innerHTML=notes.length?notes.map((n,i)=>`<div class="card" style="animation-delay:${i*.05}s" onclick="showDetail('note','${n.id}')"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><span style="font-size:10px;color:var(--text-muted);">${fmt(n.date)}</span><span style="display:flex;align-items:center;gap:4px;color:var(--text-muted);">${tipoIco[n.tipo]||''}${n.fund?ico(FUNDS[n.fund]?.icon||''):''}</span></div><div style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:500;">${n.title}</div><div style="font-size:13px;color:var(--text-muted);">${n.content.slice(0,80)}...</div></div>`).join(''):empty('·','Ninguna nota todavía');
-}
 
-function renderGallery() { const gallery=S.get('gallery'); document.getElementById('cnt-gallery').textContent=gallery.length; document.getElementById('gallery-list').innerHTML=gallery.length?gallery.map((g,i)=>`<div style="background:var(--bg);border-radius:var(--radius-sm);overflow:hidden;box-shadow:6px 6px 13px var(--sh-dark),-6px -6px 13px var(--sh-light);cursor:pointer;animation:fadeUp 0.3s ease both;animation-delay:${i*.05}s;" onclick="showDetail('gallery','${g.id}')">${g.url?`<img src="${g.url}" style="width:100%;aspect-ratio:4/3;object-fit:cover;" onerror="this.style.display='none';this.nextSibling.style.display='flex'"><div style="width:100%;aspect-ratio:4/3;display:none;align-items:center;justify-content:center;font-size:38px;background:#f2f4f9;">${g.emoji||'🖼️'}</div>`:`<div style="width:100%;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;font-size:38px;background:#f2f4f9;">${g.emoji||'🖼️'}</div>`}<div style="padding:10px 12px;"><div style="font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${g.title}</div><div style="font-size:11px;color:var(--text-muted);">${g.artist||''}</div></div></div>`).join(''):`<div style="grid-column:1/-1;">${empty('·','La galería está vacía')}</div>`; }
+  const obtenerFechaActual = () => {
+    return new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  };
 
-function renderExpos() {
-  const expos = S.get('expos');
-  document.getElementById('cnt-expos').textContent = expos.length;
-  const tipoIcoE = {museo:ico('museum'),galeria:ico('eye'),feria:ico('star'),fundacion:ico('museum'),exterior:ico('pin'),otro:ico('pin')};
-  const entryIco = {libre:'Libre',pago:'Pago',donativo:'Donativo'};
-  document.getElementById('expos-list').innerHTML = expos.length ? expos.map((e,i)=>`
-    <div class="card" style="animation-delay:${i*.05}s" onclick="editItem('expo','${e.id}')">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-        <div style="flex:1;min-width:0;">
-          <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--accent);margin-bottom:2px;">${tipoIcoE[e.tipo]||''} ${e.from?fmt(e.from):''}${e.to?' → '+fmt(e.to):''}</div>
-          <div style="font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:500;margin-bottom:6px;">${e.title}</div>
-          <div style="font-size:13px;color:var(--text);margin-bottom:2px;">${e.venue||e.location||''}</div>
-          ${e.venue&&e.location?`<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);margin-bottom:4px;">${ico('pin')} ${e.location}</div>`:`<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">${!e.venue&&e.location?'<span style="display:flex;align-items:center;gap:4px;">'+ico('pin')+' '+e.location+'</span>':''}</div>`}
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
-            ${e.hours?`<span style="display:flex;align-items:center;gap:3px;font-size:10px;color:var(--text-muted);">${ico('clock')} ${e.hours}</span>`:''}
-            ${e.entryType?`<span style="display:flex;align-items:center;gap:3px;font-size:10px;color:var(--text-muted);">${ico('ticket')} ${entryIco[e.entryType]||''}${e.price?' · '+e.price:''}</span>`:''}
-            ${e.reserva&&e.reserva!=='no'?`<span style="display:flex;align-items:center;gap:3px;font-size:10px;color:#c65000;">${ico('calendar')} Reserva ${e.reserva}</span>`:''}
+  // --- VISTA MODAL ---
+  const renderModal = () => {
+    if (!itemToDelete) return null;
+    return (
+      <div className="absolute inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center px-6 transition-all">
+        <div className={`w-full max-w-sm ${bgMain} rounded-3xl p-6 ${shadowFlat} flex flex-col items-center text-center animate-fade-in`}>
+          <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mb-4 shadow-inner">
+            <Trash2 size={28} className="text-red-400" />
+          </div>
+          <h3 className={`font-serif text-2xl ${textDark} mb-2`}>¿Eliminar elemento?</h3>
+          <p className="text-sm text-gray-500 mb-8 px-4">Esta acción no se puede deshacer y el elemento se borrará de tu estudio.</p>
+          <div className="flex gap-4 w-full">
+            <button 
+              onClick={() => setItemToDelete(null)} 
+              className={`flex-1 py-4 rounded-2xl ${bgMain} ${shadowFlat} text-gray-500 font-bold text-xs uppercase tracking-widest active:${shadowPressed} transition-all`}
+            >
+              Cancelar
+            </button>
+            <button 
+              onClick={confirmarEliminar} 
+              className={`flex-1 py-4 rounded-2xl bg-red-400 text-white font-bold text-xs uppercase tracking-widest shadow-[4px_4px_10px_#d8dde6,-4px_-4px_10px_#ffffff] active:shadow-inner transition-all`}
+            >
+              Eliminar
+            </button>
           </div>
         </div>
-        <span class="badge ${e.visited?'badge-visited':'badge-pending'}" style="flex-shrink:0;margin-left:10px;">${e.visited?'Vista':'Pendiente'}</span>
       </div>
-    </div>`).join('') : empty('·','Sin exposiciones registradas');
-}
+    );
+  };
 
-function renderWorks() { const works=S.get('works'); document.getElementById('cnt-works').textContent=works.length; const slbl={boceto:'Boceto',proceso:'En proceso',terminado:'Terminado',pausa:'En pausa'}; document.getElementById('works-list').innerHTML=works.length?works.map((w,i)=>`<div class="card" style="animation-delay:${i*.05}s" onclick="showDetail('work','${w.id}')"><span class="status-badge s-${w.status||'boceto'}">${slbl[w.status]||'Boceto'}</span>${w.fund?`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--accent2);margin-left:6px;">${ico(FUNDS[w.fund]?.icon||'')} ${FUNDS[w.fund]?.label||''}</span>`:''}<div style="font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:500;">${w.title}</div><div style="font-size:12px;color:var(--text-muted);">${w.medium||''} ${w.dims?'· '+w.dims:''}</div></div>`).join(''):empty('·','Sin obras registradas'); }
-
-function renderTechs() { const techs=S.get('techs'); document.getElementById('cnt-techs').textContent=techs.length; document.getElementById('techs-list').innerHTML=techs.length?techs.map((t,i)=>`<div class="card" style="animation-delay:${i*.05}s" onclick="showDetail('tech','${t.id}')"><div style="font-size:10px;text-transform:uppercase;color:var(--accent2);">${t.cat}</div><div style="font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:500;">${t.name}</div></div>`).join(''):empty('·','Añade tu primera técnica'); }
-
-// ── DETAIL ──
-function showDetail(type, id) {
-  let item, html, label;
-
-  if(type==='book') {
-    item=S.get('books').find(b=>b.id===id); if(!item) return; label='Biblioteca';
-    html=`<div style="text-align:center;margin-bottom:24px;"><div style="font-size:64px;">${item.emoji||'📖'}</div><div class="detail-big-title">${item.title}</div><div class="detail-meta">${item.author||''} ${item.year?'· '+item.year:''}</div><div style="color:var(--accent);font-size:18px;">${'★'.repeat(item.rating||0)}${'☆'.repeat(5-(item.rating||0))}</div></div>
-    <button class="btn" style="width:100%;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:6px;" onclick="editItem('book','${id}')">${ico('edit')} Editar</button>
-    <button class="delete-btn" onclick="del('books','${id}')">Eliminar libro</button>`;
-  }
-  else if(type==='note') {
-    item=S.get('notes').find(n=>n.id===id); if(!item) return; label='Notas';
-    const tipoLabel={reflexion:'Reflexión',tecnica:'Técnica',inspiracion:'Inspiración',critica:'Autocrítica'};
-    html=`<div class="detail-meta" style="display:flex;align-items:center;gap:6px;">${fmt(item.date)} · ${tipoLabel[item.tipo]||'Nota'}${item.fund?` · <span style="display:inline-flex;align-items:center;gap:3px;">${ico(FUNDS[item.fund]?.icon||'')} ${FUNDS[item.fund]?.label||''}</span>`:''}</div><div class="detail-big-title">${item.title}</div><div class="detail-text">${item.content}</div>
-    <button class="btn" style="width:100%;margin-top:24px;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:6px;" onclick="editItem('note','${id}')">${ico('edit')} Editar</button>
-    <button class="delete-btn" onclick="del('notes','${id}')">Eliminar nota</button>`;
-  }
-  else if(type==='gallery') {
-    item=S.get('gallery').find(g=>g.id===id); if(!item) return; label='Galería';
-    html=`${item.url?`<img src="${item.url}" style="width:100%;border-radius:16px;margin-bottom:18px;box-shadow:8px 8px 18px var(--sh-dark),-8px -8px 18px var(--sh-light);" onerror="this.style.display='none'">`:`<div style="font-size:80px;text-align:center;padding:24px 0;">${item.emoji||'🖼️'}</div>`}<div class="detail-big-title">${item.title}</div><div class="detail-meta">${item.artist||''}</div>${item.notes?`<div class="detail-text">${item.notes}</div>`:''}
-    <button class="btn btn-accent" style="width:100%;margin-top:24px;display:flex;align-items:center;justify-content:center;gap:6px;" onclick="startStudy('${id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M8.56 2.75c4.37 6.03 6.02 9.42 8.03 17.72m2.54-15.38c-3.72 4.35-8.94 5.66-16.88 5.85m19.5 1.9c-3.5-.93-6.63-.82-8.94 0-2.58.92-5.01 2.86-7.44 6.32"/></svg> Iniciar estudio de esta obra</button>
-    <button class="btn" style="width:100%;margin-top:10px;display:flex;align-items:center;justify-content:center;gap:6px;" onclick="editItem('gallery','${id}')">${ico('edit')} Editar</button>
-    <button class="delete-btn" onclick="del('gallery','${id}')">Eliminar referencia</button>`;
-  }
-  else if(type==='expo') {
-    item=S.get('expos').find(e=>e.id===id); if(!item) return; label='Exposiciones';
-    const tipoIcoD = {museo:ico('museum'),galeria:ico('eye'),feria:ico('star'),fundacion:ico('museum'),exterior:ico('pin'),otro:ico('pin')};
-    const entryLbl = {libre:'Entrada libre',pago:'De pago',donativo:'Donativo'};
-    const reservaLabel = {no:'Sin reserva',recomendada:'Reserva recomendada',obligatoria:'Reserva obligatoria'};
-    const entryColor = {libre:'#e2f5ea',pago:'#fef3e2',donativo:'#f0f4ff'};
-    const entryText = {libre:'#256635',pago:'#a06020',donativo:'#1a6ab5'};
-    html=`
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
-        <span class="badge ${item.visited?'badge-visited':'badge-pending'}">${item.visited?'Visitada':'Pendiente'}</span>
-        ${item.tipo?`<span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);">${tipoIcoD[item.tipo]||''} ${item.tipo.charAt(0).toUpperCase()+item.tipo.slice(1)}</span>`:''}
+  // --- VISTAS PRINCIPALES ---
+  const renderInicio = () => (
+    <main className="px-6 space-y-10 h-full overflow-y-auto pb-28 pt-4">
+      <div className="mt-2">
+        <h2 className={`font-serif text-3xl italic ${textDark} mb-1`}>Buenos días, artista.</h2>
+        <p className="text-sm text-gray-500 capitalize">{obtenerFechaActual()}</p>
       </div>
-      <div class="detail-big-title">${item.title}</div>
-      ${item.venue?`<div class="detail-meta" style="margin-bottom:2px;font-size:15px;color:var(--text);">${item.venue}</div>`:''}
-      <div class="detail-meta" style="margin-bottom:6px;display:flex;align-items:center;gap:5px;">${ico('pin')} ${item.location||'Sin dirección'}</div>
-      <div style="display:flex;align-items:center;gap:5px;font-size:14px;color:var(--accent);margin-bottom:18px;">${ico('calendar')} ${item.from?fmt(item.from):''}${item.to?' → '+fmt(item.to):''}</div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
-        ${item.hours?`<div style="background:var(--bg);border-radius:var(--radius-sm);padding:12px;box-shadow:5px 5px 10px var(--sh-dark),-5px -5px 10px var(--sh-light);"><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:6px;display:flex;align-items:center;gap:4px;">${ico('clock')} Horario</div><div style="font-size:13px;line-height:1.5;">${item.hours}</div></div>`:''}
-        <div style="background:var(--bg);border-radius:var(--radius-sm);padding:12px;box-shadow:5px 5px 10px var(--sh-dark),-5px -5px 10px var(--sh-light);">
-          <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:6px;display:flex;align-items:center;gap:4px;">${ico('ticket')} Entrada</div>
-          <div style="display:inline-block;font-size:12px;padding:3px 9px;border-radius:12px;background:${entryColor[item.entryType||'libre']};color:${entryText[item.entryType||'libre']};">${entryLbl[item.entryType||'libre']}</div>
-          ${item.price?`<div style="font-size:13px;margin-top:4px;font-weight:500;">${item.price}</div>`:''}
+      <div>
+        <h3 className="text-xs text-gray-400 mb-3 ml-2 font-bold uppercase tracking-widest">Reflexión Reciente</h3>
+        <div 
+          onClick={() => historia.length > 0 ? setActiveTab('historia') : setIsAdding('historia')} 
+          className={`p-6 rounded-3xl ${bgMain} ${shadowFlat} border-l-4 border-[#5b85b5] cursor-pointer active:${shadowPressed} transition-all`}
+        >
+          {historia.length > 0 ? (
+            <>
+              <p className={`font-serif italic ${textDark} text-lg leading-relaxed line-clamp-3`}>
+                "{historia[0].resumen}"
+              </p>
+              <div className="flex justify-between items-center mt-4">
+                <span className="text-[10px] text-[#5b85b5] font-bold uppercase tracking-widest line-clamp-1">
+                  Del apunte: {historia[0].tema}
+                </span>
+                <span className="text-[10px] text-gray-400 uppercase tracking-widest flex-shrink-0 ml-2">
+                  {historia[0].fecha}
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-2 text-gray-400">
+              <Plus size={24} className="mb-2 text-[#5b85b5]" />
+              <p className="font-serif italic text-sm">Aún no tienes apuntes.</p>
+              <p className="text-xs font-bold uppercase tracking-widest mt-1 text-[#5b85b5]">Escribe tu primera reflexión</p>
+            </div>
+          )}
         </div>
-        ${item.reserva&&item.reserva!=='no'?`<div style="background:var(--bg);border-radius:var(--radius-sm);padding:12px;box-shadow:5px 5px 10px var(--sh-dark),-5px -5px 10px var(--sh-light);"><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:6px;display:flex;align-items:center;gap:4px;">${ico('calendar')} Reserva</div><div style="font-size:13px;color:${item.reserva==='obligatoria'?'#c65000':'#73809c'};">${reservaLabel[item.reserva]}</div></div>`:''}
       </div>
 
-      ${item.notes?`<div class="detail-text" style="margin-bottom:20px;">${item.notes}</div>`:''}
-      ${item.url?`<a href="${item.url}" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:6px;text-align:center;padding:12px;border-radius:var(--radius-sm);background:var(--bg);color:var(--accent2);font-size:13px;font-weight:500;box-shadow:5px 5px 10px var(--sh-dark),-5px -5px 10px var(--sh-light);text-decoration:none;margin-bottom:12px;">${ico('link')} Ver web de la exposición</a>`:''}
-      <button class="btn" style="width:100%;text-align:center;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:6px;" onclick="toggleVisited('${id}')">${item.visited?ico('check')+' Visitada — Desmarcar':'Marcar como visitada'}</button>
-      <button class="btn" style="width:100%;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:6px;" onclick="editItem('expo','${id}')">${ico('edit')} Editar</button>
-      <button class="delete-btn" onclick="del('expos','${id}')">Eliminar exposición</button>`;
-  }
-  else if(type==='work') {
-    item=S.get('works').find(w=>w.id===id); if(!item) return; label='Mis obras';
-    const slbl={boceto:'Boceto',proceso:'En proceso',terminado:'Terminado',pausa:'En pausa'};
-    html=`
-      ${item.status!=='terminado'?`<button class="btn btn-accent" style="width:100%;margin-bottom:20px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px;" onclick="finishWork('${id}')">${ico('star')} Marcar como Terminada +30 XP</button>`:''}
-      <span class="status-badge s-${item.status||'boceto'}">${slbl[item.status]||'Boceto'}</span>
-      ${item.fund?`<span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;color:var(--accent2);margin-left:8px;">${ico(FUNDS[item.fund]?.icon||'')} ${FUNDS[item.fund]?.label||''}</span>`:''}
-      <div class="detail-big-title" style="margin-top:8px;">${item.title}</div>
-      <div class="detail-meta">${item.medium||''}${item.dims?' · '+item.dims:''}${item.date?' · '+fmt(item.date):''}</div>
-      ${item.intention?`<div style="background:#f0f4ff;border-left:3px solid var(--accent2);padding:12px 14px;border-radius:0 10px 10px 0;margin-bottom:16px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent2);margin-bottom:4px;">Intención</div><div style="font-size:14px;font-style:italic;color:var(--text);">${item.intention}</div></div>`:''}
-      ${item.notes?`<div class="detail-text">${item.notes}</div>`:''}
-      ${item.status==='terminado'&&item.lessons?`<div style="background:#fffdf5;border-left:3px solid #f2d05c;padding:14px;margin-top:16px;border-radius:0 var(--radius-sm) var(--radius-sm) 0;"><div style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:#b08b1a;margin-bottom:6px;font-family:'DM Sans',sans-serif;">Lecciones Aprendidas</div><div class="detail-text" style="color:#5a5035;font-size:14px;font-style:italic;">${item.lessons}</div></div>`:``}
-      <button class="btn" style="width:100%;margin-top:20px;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:6px;" onclick="editItem('work','${id}')">${ico('edit')} Editar</button>
-      <button class="delete-btn" onclick="del('works','${id}')">Eliminar obra</button>`;
-  }
-  else if(type==='tech') {
-    item=S.get('techs').find(t=>t.id===id); if(!item) return; label='Técnicas';
-    html=`<div class="detail-big-title">${item.name}</div><div class="detail-meta">${item.cat}</div>${item.desc?`<div class="detail-text">${item.desc}</div>`:''}${item.mats?`<div style="margin-top:14px;font-size:13px;color:var(--text-muted);">🛍️ ${item.mats}</div>`:''}${item.notes?`<div class="detail-text" style="margin-top:12px;">${item.notes}</div>`:''}
-    <button class="btn" style="width:100%;margin-top:24px;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:6px;" onclick="editItem('tech','${id}')">${ico('edit')} Editar</button>
-    <button class="delete-btn" onclick="del('techs','${id}')">Eliminar técnica</button>`;
-  }
-  else if(type==='maestro') {
-    const maestro = getAllMaestros().find(m=>m.id===id); if(!maestro) return; label='Maestros';
-    const prog = getMaestroProgress();
-    const p = prog[id]||{};
-    html=`
-      <div style="text-align:center;margin-bottom:24px;"><div style="font-size:72px;">${maestro.emoji}</div><div class="detail-big-title">${maestro.name}</div><div class="detail-meta">${maestro.period||''}${maestro.country?' · '+maestro.country:''}${maestro.style?' · '+maestro.style:''}</div>${p.studying?`<span class="studying-badge">Estudiando · ${p.studies||0} estudio${(p.studies||0)!==1?'s':''}</span>`:''}</div>
-      ${maestro.lesson?`<div style="background:var(--bg);border-radius:var(--radius-sm);padding:18px;margin-bottom:16px;box-shadow:5px 5px 10px var(--sh-dark),-5px -5px 10px var(--sh-light);"><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent2);margin-bottom:8px;">Su lección principal</div><div style="font-family:'Cormorant Garamond',serif;font-size:18px;font-style:italic;line-height:1.65;">"${maestro.lesson}"</div></div>`:''}
-      ${maestro.tips&&maestro.tips.length?`<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:10px;">Tips para aprender de ${maestro.name.split(' ')[0]}</div>${maestro.tips.map(t=>`<div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;"><span style="color:var(--accent);flex-shrink:0;margin-top:2px;">${ico('spark')}</span><div style="font-size:14px;line-height:1.55;">${t}</div></div>`).join('')}`:''}
-      <div style="margin-top:20px;display:flex;align-items:center;gap:5px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent2);margin-bottom:8px;">${ico(FUNDS[maestro.fund]?.icon||'')} Fundamento que trabaja: ${FUNDS[maestro.fund]?.label||maestro.fund}</div>
-      <button class="btn btn-accent" style="width:100%;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:6px;" onclick="startMaestroStudy('${id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M8.56 2.75c4.37 6.03 6.02 9.42 8.03 17.72m2.54-15.38c-3.72 4.35-8.94 5.66-16.88 5.85m19.5 1.9c-3.5-.93-6.63-.82-8.94 0-2.58.92-5.01 2.86-7.44 6.32"/></svg> Iniciar Master Study</button>
-      <button class="btn btn-teal" style="width:100%;margin-top:10px;color:#fff;display:flex;align-items:center;justify-content:center;gap:6px;" onclick="toggleMaestroStudying('${id}');closeDetail();renderMaestros();">${p.studying?ico('check')+' Dejar de estudiar':ico('star')+' Añadir a mis maestros'}</button>
-      <button class="btn" style="width:100%;margin-top:10px;display:flex;align-items:center;justify-content:center;gap:6px;" onclick="closeDetail();editMaestro('${id}')">${ico('edit')} Editar</button>
-    `;
-  }
+      <div>
+        <h3 className="text-xs text-gray-400 mb-3 ml-2 font-bold uppercase tracking-widest">Tu Estudio</h3>
+        <div className="grid grid-cols-3 gap-4">
+          {[
+            { label: 'HISTORIA', count: historia.length, tab: 'historia' },
+            { label: 'LIBROS', count: libros.length, tab: 'libros' },
+            { label: 'NOTAS', count: notas.length, tab: 'notas' },
+            { label: 'REFS', count: referencias.length, tab: 'galeria' },
+            { label: 'TÉCNICAS', count: 0, tab: 'tecnicas' },
+            { label: 'EXPOS', count: 0, tab: 'expos' },
+          ].map((item, index) => (
+            <button 
+              key={index} onClick={() => setActiveTab(item.tab)}
+              className={`aspect-square rounded-2xl flex flex-col items-center justify-center gap-2 ${bgMain} ${shadowFlat} active:${shadowPressed} transition-all`}
+            >
+              <span className={`text-2xl font-serif ${item.count > 0 ? 'text-[#5b85b5]' : 'text-gray-400'}`}>{item.count > 0 ? item.count : 'O'}</span>
+              <span className="text-[10px] uppercase tracking-widest text-gray-500">{item.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </main>
+  );
 
-  document.getElementById('detail-hdr-label').textContent = label||'';
-  document.getElementById('detail-inner').innerHTML = html||'';
-  document.getElementById('detail').classList.add('open');
-}
+  const renderHistoria = () => (
+    <main className="px-6 h-full overflow-y-auto pb-28 pt-4 bg-[#f5f6f8]">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className={`font-serif text-2xl ${textDark}`}>Apuntes e Historia</h2>
+        <button onClick={() => setIsAdding('historia')} className={`w-10 h-10 rounded-full ${bgMain} ${shadowFlat} flex items-center justify-center text-[#5b85b5] active:${shadowPressed} transition-all`}><Plus size={20} /></button>
+      </div>
+      <div className="space-y-6">
+        {historia.length === 0 && (
+          <div className="text-center mt-16 text-gray-400">
+            <Landmark size={40} className="mx-auto mb-4 opacity-30" />
+            <p className="italic font-serif">Tu cuaderno de historia está en blanco.</p>
+          </div>
+        )}
+        {historia.map(apunte => (
+          <div key={apunte.id} className={`p-6 rounded-3xl ${bgMain} ${shadowFlat} relative overflow-hidden transition-all`}>
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#5b85b5] opacity-50"></div>
+            <div className="flex justify-between items-baseline mb-2">
+              <h3 className={`font-serif text-xl ${textDark}`}>{apunte.tema}</h3>
+              <span className="text-xs text-gray-400 font-mono">{apunte.fecha}</span>
+            </div>
+            <div className="flex gap-2 mb-4 flex-wrap">
+              {apunte.etiquetas.map((tag, i) => (
+                <span key={i} className={`text-[9px] px-2 py-1 rounded-md ${shadowInset} text-[#5b85b5] uppercase tracking-widest`}>{tag}</span>
+              ))}
+            </div>
+            <p className="text-sm text-gray-600 leading-relaxed line-clamp-3 mb-4">{apunte.resumen}</p>
+            <button 
+              onClick={() => setSelectedItem({ type: 'historia', data: apunte })}
+              className="text-xs font-bold text-[#5b85b5] uppercase tracking-widest flex items-center gap-1 active:opacity-50"
+            >
+              Leer apunte completo <ArrowLeft size={12} className="rotate-180" />
+            </button>
+          </div>
+        ))}
+      </div>
+    </main>
+  );
 
-function startStudy(galleryId) {
-  closeDetail();
-  const item = S.get('gallery').find(g => g.id === galleryId);
-  if(!item) return;
-  go('works', document.getElementById('nav-works'), 'Mis obras');
-  document.getElementById('m-work').classList.add('open');
-  document.getElementById('w-title').value = 'Estudio: '+item.title;
-  document.getElementById('w-medium').value = 'Basado en '+( item.artist||'desconocido');
-  document.getElementById('w-status').value = 'boceto';
-  document.getElementById('w-intention').value = 'Estudio de referencia de galería.\nObservaciones: '+(item.notes||'');
-}
+  const renderLibros = () => (
+    <main className="px-6 h-full overflow-y-auto pb-28 pt-4 bg-[#f5f6f8]">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className={`font-serif text-2xl ${textDark}`}>Mi Biblioteca</h2>
+        <button onClick={() => setIsAdding('libro')} className={`w-10 h-10 rounded-full ${bgMain} ${shadowFlat} flex items-center justify-center text-[#5b85b5] active:${shadowPressed} transition-all`}><Plus size={20} /></button>
+      </div>
+      <div className="space-y-6">
+        {libros.length === 0 && (
+          <div className="text-center mt-16 text-gray-400">
+            <Book size={40} className="mx-auto mb-4 opacity-30" />
+            <p className="italic font-serif">Añade tu primer libro o manual de estudio.</p>
+          </div>
+        )}
+        {libros.map(libro => (
+          <div 
+            key={libro.id} 
+            onClick={() => setSelectedItem({ type: 'libro', data: libro })}
+            className={`p-4 rounded-3xl ${bgMain} ${shadowFlat} flex gap-4 items-center cursor-pointer active:${shadowPressed} transition-all`}
+          >
+            <div className="w-20 h-28 rounded-xl overflow-hidden shadow-inner flex-shrink-0 bg-gray-200">
+              <img src={libro.imagen} alt={libro.titulo} className="w-full h-full object-cover" />
+            </div>
+            <div className="flex-1 pr-2">
+              <h3 className={`font-serif text-lg leading-tight mb-1 ${textDark}`}>{libro.titulo}</h3>
+              <p className="text-xs text-[#5b85b5] mb-2">{libro.autor}</p>
+              <div className="flex items-center gap-2 mb-2">
+                <Bookmark size={12} className={libro.progreso > 0 ? "text-[#b85b5b]" : "text-gray-400"} />
+                <span className="text-[10px] uppercase tracking-widest text-gray-500">{libro.estado}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </main>
+  );
 
-function closeDetail() { document.getElementById('detail').classList.remove('open'); }
-function del(col, id) { if(!confirm('¿Eliminar elemento?')) return; S.set(col, S.get(col).filter(i=>i.id!==id)); closeDetail(); render(cur); renderHome(); }
-function toggleVisitedFromModal(id) {
-  const expos = S.get('expos').map(e => e.id===id ? {...e, visited:!e.visited} : e);
-  S.set('expos', expos);
-  closeM('m-expo'); render('expos'); renderHome();
-}
-function toggleVisited(id) { const expos=S.get('expos').map(e=>e.id===id?{...e,visited:!e.visited}:e); S.set('expos',expos); renderExpos(); renderHome(); }
-function fillBookSelect() { document.getElementById('n-book').innerHTML='<option value="">— Sin libro —</option>'+S.get('books').map(b=>`<option value="${b.id}">${b.title}</option>`).join(''); }
+  const renderListaNotas = () => (
+    <main className="px-6 h-full overflow-y-auto pb-28 pt-4 bg-[#f5f6f8]">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className={`font-serif text-2xl ${textDark}`}>Cuaderno de Obras</h2>
+        <button onClick={() => setIsAdding('nota')} className={`w-12 h-12 rounded-full ${bgMain} ${shadowFlat} flex items-center justify-center text-[#5b85b5] active:${shadowPressed} transition-all`}>
+          <Plus size={24} />
+        </button>
+      </div>
+      <div className="space-y-6">
+        {notas.length === 0 && (
+          <div className="text-center mt-16 text-gray-400">
+            <FileText size={40} className="mx-auto mb-4 opacity-30" />
+            <p className="italic font-serif">Aún no has analizado ninguna obra.</p>
+          </div>
+        )}
+        {notas.map(nota => (
+          <div key={nota.id} onClick={() => setSelectedItem({ type: 'nota', data: nota })} className={`p-4 rounded-3xl ${bgMain} ${shadowFlat} active:${shadowPressed} transition-all cursor-pointer`}>
+            <div className="aspect-[4/3] w-full rounded-2xl overflow-hidden mb-4 shadow-inner bg-gray-200">
+              <img src={nota.imagen} alt={nota.titulo} className="w-full h-full object-cover opacity-90" />
+            </div>
+            <div className="px-2">
+              <div className="flex justify-between items-start mb-1">
+                <h3 className={`font-serif text-xl ${textDark}`}>{nota.titulo}</h3>
+                <span className="text-xs text-gray-400 font-mono">{nota.año}</span>
+              </div>
+              <p className="text-sm text-[#5b85b5] mb-3">{nota.autor}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </main>
+  );
 
-// UTILS
-function fmt(str) { if(!str) return ''; try { return new Date(str.includes('T')?str:str+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'}); } catch { return str; } }
-function empty(_, txt) { return `<div class="empty"><div class="empty-icon"><svg viewBox="0 0 40 40" width="40" height="40" fill="none" stroke="var(--sh-dark)" stroke-width="1"><circle cx="20" cy="20" r="16"/><circle cx="20" cy="20" r="4" fill="var(--sh-dark)"/></svg></div><div class="empty-text">${txt}</div></div>`; }
+  const renderGaleria = () => {
+    const refsFiltradas = filtroGaleria === 'Todas' ? referencias : referencias.filter(r => r.cat === filtroGaleria);
+    const categorias = ['Todas', 'Luz', 'Color', 'Composición', 'Textura'];
 
-// INIT
-document.addEventListener('DOMContentLoaded', () => { renderHome(); });
-</script>
-</body>
-</html>
+    return (
+      <main className="h-full overflow-y-auto pb-28 pt-4 bg-[#f5f6f8]">
+        <div className="px-6 flex justify-between items-center mb-6">
+          <h2 className={`font-serif text-2xl ${textDark}`}>Referencias</h2>
+          <button onClick={() => setIsAdding('galeria')} className={`w-10 h-10 rounded-full ${bgMain} ${shadowFlat} flex items-center justify-center text-[#5b85b5] active:${shadowPressed} transition-all`}><Plus size={20} /></button>
+        </div>
+        
+        <div className="px-6 mb-8 overflow-x-auto hide-scrollbar flex gap-4 pb-4">
+          {categorias.map(cat => (
+            <button key={cat} onClick={() => setFiltroGaleria(cat)} className={`px-5 py-2 rounded-full text-xs font-bold tracking-wider uppercase transition-all whitespace-nowrap ${filtroGaleria === cat ? `${shadowPressed} text-[#5b85b5]` : `${shadowFlat} text-gray-500 hover:text-[#4a729e]`}`}>
+              {cat}
+            </button>
+          ))}
+        </div>
+        <div className="px-6 grid grid-cols-2 gap-4">
+          {refsFiltradas.length === 0 && (
+             <div className="col-span-2 text-center mt-10 text-gray-400">
+                <ImageIcon size={40} className="mx-auto mb-4 opacity-30" />
+                <p className="italic font-serif">No hay referencias guardadas aquí.</p>
+             </div>
+          )}
+          {refsFiltradas.map((ref, i) => (
+            <div key={ref.id} className={`p-2 rounded-2xl ${bgMain} ${shadowFlat} flex flex-col relative group ${i % 2 === 0 ? 'mt-0' : 'mt-6'}`}>
+              <button 
+                onClick={() => handleEliminarReferenciaClick(ref.id)}
+                className="absolute top-4 right-4 z-10 bg-white/80 p-1.5 rounded-full text-red-400 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm shadow-md"
+              >
+                <Trash2 size={12} />
+              </button>
+              <div className="w-full rounded-xl overflow-hidden shadow-inner aspect-[3/4] bg-gray-200">
+                <img src={ref.img} alt={ref.nota} className="w-full h-full object-cover" />
+              </div>
+              <p className="text-[10px] text-center text-gray-500 mt-3 mb-1 uppercase tracking-widest px-1 line-clamp-2">{ref.nota}</p>
+            </div>
+          ))}
+        </div>
+      </main>
+    );
+  };
+
+  const renderEnConstruccion = (nombre) => (
+    <main className="px-6 flex flex-col items-center justify-center h-full text-gray-400 pb-20">
+      <Info size={48} className="mb-6 opacity-30" />
+      <span className="text-4xl mb-2 font-serif italic text-gray-300 capitalize">{nombre}</span>
+      <p className="text-sm">Esta sección está en desarrollo.</p>
+    </main>
+  );
+
+  // --- VISTAS DE DETALLE (Leer Obra, Historia o Libro) ---
+  const renderDetalle = () => {
+    const { type, data } = selectedItem;
+
+    return (
+      <main className="h-full overflow-y-auto pb-28 bg-[#f5f6f8]">
+        {/* Cabecera común de Detalle */}
+        <div className="px-6 py-4 flex justify-between items-center sticky top-0 z-20 bg-[#f5f6f8]/90 backdrop-blur-md">
+          <button onClick={() => setSelectedItem(null)} className={`w-10 h-10 rounded-full ${shadowFlat} flex items-center justify-center text-gray-500 active:${shadowPressed} transition-all`}><ArrowLeft size={20} /></button>
+          <span className="text-xs uppercase tracking-widest font-bold text-gray-400">
+            {type === 'nota' ? 'Obra' : type === 'historia' ? 'Apunte' : 'Libro'}
+          </span>
+          <button onClick={handleEliminarClick} className={`w-10 h-10 rounded-full ${shadowFlat} flex items-center justify-center text-red-400 hover:text-red-500 active:${shadowPressed} transition-all`}><Trash2 size={18} /></button>
+        </div>
+        
+        {/* Cuerpo específico según el tipo */}
+        {type === 'historia' && (
+          <>
+            <div className="px-8 mt-6 mb-10">
+              <h1 className={`font-serif text-3xl ${textDark} mb-4 leading-tight`}>{data.tema}</h1>
+              <div className="flex gap-2 text-xs text-gray-500 uppercase tracking-widest mb-6 flex-wrap">
+                <span className="flex items-center gap-1"><Clock size={12}/> {data.fecha}</span>
+              </div>
+            </div>
+            <div className="px-8">
+              <div className={`p-8 rounded-3xl ${shadowInset} bg-[#f5f6f8]`}>
+                <p className={`${textDark} leading-relaxed text-[15px] whitespace-pre-line`}>{data.resumen}</p>
+              </div>
+            </div>
+          </>
+        )}
+
+        {type === 'libro' && (
+          <>
+            <div className="px-8 mt-4 mb-8 flex flex-col items-center text-center">
+              <div className={`w-32 h-44 rounded-xl overflow-hidden shadow-inner mb-6 bg-gray-200`}>
+                <img src={data.imagen} alt={data.titulo} className="w-full h-full object-cover" />
+              </div>
+              <h1 className={`font-serif text-2xl ${textDark} mb-2 leading-tight`}>{data.titulo}</h1>
+              <p className="text-[#5b85b5] text-sm mb-4">{data.autor}</p>
+              <div className="flex items-center gap-2 px-4 py-2 rounded-full shadowInset">
+                  <Bookmark size={14} className={data.progreso > 0 ? "text-[#b85b5b]" : "text-gray-400"} />
+                  <span className="text-xs uppercase tracking-widest text-gray-500">{data.estado}</span>
+              </div>
+            </div>
+            <div className="px-8 space-y-10">
+              <section>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={`w-8 h-8 rounded-full ${shadowInset} flex items-center justify-center text-[#5b85b5]`}><Edit2 size={14} /></div>
+                  <h3 className={`text-sm uppercase tracking-widest text-gray-500 font-bold`}>Mis Apuntes / Reseña</h3>
+                </div>
+                <div className={`p-6 rounded-3xl ${shadowFlat} border-l-4 border-[#5b85b5] bg-[#f5f6f8]`}>
+                  {data.reseña ? (
+                    <p className={`${textDark} leading-relaxed text-sm italic font-serif`}>"{data.reseña}"</p>
+                  ) : (
+                    <p className={`text-gray-400 text-sm italic`}>Aún no has escrito reseñas sobre este libro.</p>
+                  )}
+                </div>
+              </section>
+            </div>
+          </>
+        )}
+
+        {type === 'nota' && (
+          <>
+            <div className="px-6 mb-8 mt-2 relative">
+              {isEditingImage ? (
+                 <div className={`w-full rounded-3xl p-6 ${shadowInset} flex flex-col items-center justify-center min-h-[250px] bg-[#f5f6f8]`}>
+                    <ImageIcon size={32} className="text-[#5b85b5] mb-4 opacity-50" />
+                    <input 
+                      autoFocus type="text" value={tempImageUrl} 
+                      onChange={(e) => setTempImageUrl(e.target.value)}
+                      onBlur={handleSaveImageEdit}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSaveImageEdit()}
+                      placeholder="Pega la nueva URL de la imagen..."
+                      className="w-full text-center bg-transparent border-b border-[#5b85b5] text-sm text-[#4a5568] focus:outline-none pb-2"
+                    />
+                    <p className="text-[10px] text-gray-400 mt-4 uppercase tracking-widest">Pulsa Enter para guardar</p>
+                 </div>
+              ) : (
+                <div 
+                  onClick={() => { setTempImageUrl(data.imagen); setIsEditingImage(true); }}
+                  className={`w-full rounded-3xl p-2 ${shadowFlat} cursor-pointer hover:opacity-90 transition-opacity relative group`}
+                >
+                  <div className="w-full rounded-2xl overflow-hidden shadow-inner bg-gray-200">
+                    <img src={data.imagen} alt={data.titulo} className="w-full object-cover min-h-[200px]" />
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                     <div className="bg-black/50 text-white px-4 py-2 rounded-full text-xs font-bold tracking-widest uppercase flex items-center gap-2 backdrop-blur-sm">
+                       <Edit2 size={12} /> Cambiar Foto
+                     </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="px-8 mb-10 text-center">
+              <h1 className={`font-serif text-3xl ${textDark} mb-2`}>{data.titulo}</h1>
+              <p className="text-[#5b85b5] text-lg mb-4">{data.autor} <span className="text-gray-400 text-sm">({data.año})</span></p>
+              <div className="flex justify-center gap-3 text-xs text-gray-500 uppercase tracking-widest mb-6 flex-wrap">
+                <span className="flex items-center gap-1"><Tag size={12}/> {data.disciplina}</span>
+              </div>
+            </div>
+            <div className="px-8 space-y-10">
+              <section>
+                <div className="flex items-center gap-3 mb-4"><div className={`w-8 h-8 rounded-full ${shadowInset} flex items-center justify-center text-[#5b85b5]`}><Book size={14} /></div><h3 className={`text-sm uppercase tracking-widest text-gray-500 font-bold`}>Visión Especializada</h3></div>
+                <div className={`p-6 rounded-3xl ${shadowInset} bg-[#f5f6f8]`}>
+                  <p className={`${textDark} leading-relaxed text-sm whitespace-pre-line`}>{data.historia}</p>
+                </div>
+              </section>
+              <section>
+                <div className="flex items-center gap-3 mb-4"><div className={`w-8 h-8 rounded-full ${shadowInset} flex items-center justify-center text-[#b85b5b]`}><Target size={14} /></div><h3 className={`text-sm uppercase tracking-widest text-gray-500 font-bold`}>Mi Inspiración</h3></div>
+                <div className={`p-6 rounded-3xl ${shadowFlat} border-l-4 border-[#5b85b5] bg-[#f5f6f8]`}>
+                  <p className={`${textDark} leading-relaxed text-sm italic font-serif`}>"{data.inspiracion}"</p>
+                </div>
+              </section>
+            </div>
+          </>
+        )}
+      </main>
+    );
+  };
+
+  // --- VISTAS DE FORMULARIOS DE AÑADIR ---
+  const renderAñadir = () => {
+    const titulos = {
+      nota: 'Nueva Obra', historia: 'Nuevo Apunte', libro: 'Añadir Libro', galeria: 'Nueva Referencia'
+    };
+
+    return (
+      <main className="h-full overflow-y-auto pb-28 bg-[#f5f6f8]">
+        <div className="px-6 py-4 flex justify-between items-center sticky top-0 z-20 bg-[#f5f6f8]/90 backdrop-blur-md">
+          <button onClick={resetForm} className={`w-10 h-10 rounded-full ${shadowFlat} flex items-center justify-center text-gray-500 active:${shadowPressed} transition-all`}><ArrowLeft size={20} /></button>
+          <h2 className={`font-serif text-xl ${textDark}`}>{titulos[isAdding]}</h2>
+          <button onClick={handleGuardar} className={`w-10 h-10 rounded-full ${bgAccent} text-white shadow-[4px_4px_10px_#d8dde6,-4px_-4px_10px_#ffffff] flex items-center justify-center active:shadow-inner transition-all`}><Check size={20} /></button>
+        </div>
+        
+        <div className="px-6 space-y-6 mt-4">
+          
+          {isAdding === 'nota' && (
+            <>
+              <div className="space-y-4">
+                <input type="text" name="titulo" value={formData.titulo || ''} placeholder="Título de la obra..." onChange={handleInputChange} className={`w-full ${bgMain} ${shadowInset} rounded-2xl px-5 py-4 text-lg font-serif ${textDark} focus:outline-none`} />
+                <div className="flex gap-4">
+                  <input type="text" name="autor" value={formData.autor || ''} placeholder="Autor" onChange={handleInputChange} className={`flex-1 ${bgMain} ${shadowInset} rounded-2xl px-5 py-4 text-sm ${textDark} focus:outline-none`} />
+                  <input type="text" name="año" value={formData.año || ''} placeholder="Año" onChange={handleInputChange} className={`w-24 ${bgMain} ${shadowInset} rounded-2xl px-5 py-4 text-sm font-mono text-center ${textDark} focus:outline-none`} />
+                </div>
+                <select name="disciplina" value={formData.disciplina || 'Pintura'} onChange={handleInputChange} className={`w-full ${bgMain} ${shadowInset} rounded-2xl px-5 py-4 text-sm ${textDark} focus:outline-none appearance-none`}>
+                  <option value="Pintura">Pintura</option>
+                  <option value="Fotografía">Fotografía</option>
+                  <option value="Escultura">Escultura</option>
+                  <option value="Arquitectura">Arquitectura</option>
+                </select>
+                <input type="text" name="imagen" value={formData.imagen || ''} placeholder="URL de la imagen" onChange={handleInputChange} className={`w-full ${bgMain} ${shadowInset} rounded-2xl px-5 py-4 text-sm text-[#5b85b5] focus:outline-none`} />
+              </div>
+              <div className="space-y-4 pt-4 border-t border-gray-200/50">
+                <textarea name="historia" value={formData.historia || ''} placeholder="Técnica, historia o contexto..." onChange={handleInputChange} className={`w-full ${bgMain} ${shadowInset} rounded-3xl px-6 py-5 min-h-[120px] text-sm ${textDark} leading-relaxed focus:outline-none`} />
+                <textarea name="inspiracion" value={formData.inspiracion || ''} placeholder="¿Qué te transmite? ¿Qué te gustaría adaptar?" onChange={handleInputChange} className={`w-full ${bgMain} border-l-4 border-[#5b85b5] shadow-inner rounded-r-3xl rounded-l-md px-6 py-5 min-h-[120px] text-sm font-serif italic ${textDark} leading-relaxed focus:outline-none`} />
+              </div>
+            </>
+          )}
+
+          {isAdding === 'historia' && (
+            <div className="space-y-4">
+              <input type="text" name="tema" value={formData.tema || ''} placeholder="Tema (ej. Teoría del Color)" onChange={handleInputChange} className={`w-full ${bgMain} ${shadowInset} rounded-2xl px-5 py-4 text-lg font-serif ${textDark} focus:outline-none`} />
+              <input type="text" name="etiquetas" value={formData.etiquetas || ''} placeholder="Etiquetas (separadas por comas)" onChange={handleInputChange} className={`w-full ${bgMain} ${shadowInset} rounded-2xl px-5 py-4 text-sm ${textDark} focus:outline-none`} />
+              <textarea name="resumen" value={formData.resumen || ''} placeholder="Escribe tu apunte, resumen o reflexión aquí..." onChange={handleInputChange} className={`w-full ${bgMain} ${shadowInset} rounded-3xl px-6 py-5 min-h-[250px] text-sm ${textDark} leading-relaxed focus:outline-none`} />
+            </div>
+          )}
+
+          {isAdding === 'libro' && (
+            <div className="space-y-4">
+              <input type="text" name="titulo" value={formData.titulo || ''} placeholder="Título del libro" onChange={handleInputChange} className={`w-full ${bgMain} ${shadowInset} rounded-2xl px-5 py-4 text-lg font-serif ${textDark} focus:outline-none`} />
+              <input type="text" name="autor" value={formData.autor || ''} placeholder="Autor" onChange={handleInputChange} className={`w-full ${bgMain} ${shadowInset} rounded-2xl px-5 py-4 text-sm ${textDark} focus:outline-none`} />
+              <select name="estado" value={formData.estado || 'Pendiente'} onChange={handleInputChange} className={`w-full ${bgMain} ${shadowInset} rounded-2xl px-5 py-4 text-sm ${textDark} focus:outline-none appearance-none`}>
+                <option value="Pendiente">Pendiente</option>
+                <option value="Leyendo">Leyendo</option>
+                <option value="Terminado">Terminado</option>
+              </select>
+              <input type="text" name="imagen" value={formData.imagen || ''} placeholder="URL de la portada" onChange={handleInputChange} className={`w-full ${bgMain} ${shadowInset} rounded-2xl px-5 py-4 text-sm text-[#5b85b5] focus:outline-none`} />
+              <textarea name="reseña" value={formData.reseña || ''} placeholder="Tus apuntes o reseña (opcional)" onChange={handleInputChange} className={`w-full ${bgMain} ${shadowInset} rounded-3xl px-6 py-5 min-h-[120px] text-sm ${textDark} leading-relaxed focus:outline-none mt-4`} />
+            </div>
+          )}
+
+          {isAdding === 'galeria' && (
+            <div className="space-y-4">
+              <input type="text" name="imagen" value={formData.imagen || ''} placeholder="URL de la imagen" onChange={handleInputChange} className={`w-full ${bgMain} ${shadowInset} rounded-2xl px-5 py-4 text-sm text-[#5b85b5] focus:outline-none`} />
+              <select name="categoria" value={formData.categoria || 'Luz'} onChange={handleInputChange} className={`w-full ${bgMain} ${shadowInset} rounded-2xl px-5 py-4 text-sm ${textDark} focus:outline-none appearance-none`}>
+                <option value="Luz">Luz</option>
+                <option value="Color">Color</option>
+                <option value="Composición">Composición</option>
+                <option value="Textura">Textura</option>
+              </select>
+              <input type="text" name="nota" value={formData.nota || ''} placeholder="Pequeña nota descriptiva..." onChange={handleInputChange} className={`w-full ${bgMain} ${shadowInset} rounded-2xl px-5 py-4 text-sm ${textDark} focus:outline-none`} />
+            </div>
+          )}
+        </div>
+      </main>
+    );
+  };
+
+  const renderCurrentView = () => {
+    if (isAdding) return renderAñadir();
+    if (selectedItem) return renderDetalle();
+    
+    switch (activeTab) {
+      case 'inicio': return renderInicio();
+      case 'historia': return renderHistoria();
+      case 'libros': return renderLibros();
+      case 'notas': return renderListaNotas();
+      case 'galeria': return renderGaleria();
+      case 'tecnicas': return renderEnConstruccion('Técnicas');
+      case 'expos': return renderEnConstruccion('Exposiciones');
+      default: return renderInicio();
+    }
+  };
+
+  const showBottomNav = !isAdding && !selectedItem;
+
+  return (
+    <div className={`min-h-screen ${bgMain} font-sans flex justify-center`}>
+      <div className={`w-full max-w-md relative shadow-2xl ${bgMain} overflow-hidden flex flex-col h-screen`}>
+        
+        {/* MODAL DE CONFIRMACIÓN */}
+        {renderModal()}
+
+        {showBottomNav && (
+          <header className="px-6 pt-12 pb-4 flex justify-between items-end flex-shrink-0 z-10">
+            <div>
+              <h1 className={`${textDark} text-2xl font-light tracking-wide flex items-baseline gap-2`}>
+                Atelier <span className="text-sm text-gray-400 font-sans">アトリエ</span>
+              </h1>
+            </div>
+            <div className="flex gap-4 text-gray-500">
+              <span className="text-xs uppercase tracking-widest mt-2">Estudio</span>
+            </div>
+          </header>
+        )}
+
+        <div className="flex-1 overflow-hidden relative">
+          {renderCurrentView()}
+        </div>
+
+        {showBottomNav && (
+          <nav className={`absolute bottom-0 w-full px-2 py-4 ${bgMain} shadow-[0_-10px_20px_rgba(216,221,230,0.5)] flex justify-between rounded-t-3xl z-20`}>
+            {[
+              { id: 'inicio', icon: Home, label: 'INICIO' },
+              { id: 'historia', icon: Landmark, label: 'HISTORIA' },
+              { id: 'libros', icon: Book, label: 'LIBROS' },
+              { id: 'notas', icon: FileText, label: 'NOTAS' },
+              { id: 'galeria', icon: ImageIcon, label: 'GALERÍA' },
+            ].map((tab) => (
+              <button 
+                key={tab.id} 
+                onClick={() => setActiveTab(tab.id)} 
+                className={`flex flex-col items-center w-full gap-1 transition-colors ${activeTab === tab.id ? 'text-[#5b85b5]' : 'text-gray-400 hover:text-gray-500'}`}
+              >
+                <tab.icon size={20} strokeWidth={activeTab === tab.id ? 2.5 : 2} />
+                <span className="text-[8px] font-bold tracking-wider">{tab.label}</span>
+              </button>
+            ))}
+          </nav>
+        )}
+
+      </div>
+    </div>
+  );
+};
+
+export default App;
+
+
